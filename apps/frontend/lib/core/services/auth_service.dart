@@ -46,7 +46,7 @@ class AuthService {
     final verifier = await _storage.read(key: 'pkce_code_verifier');
     if (verifier == null) return false;
 
-    final redirectUri = 'easychat://oauth2/callback';
+    const redirectUri = 'easychat://oauth2/callback';
     final tokenUrl = Uri.parse('$_keycloakBaseUrl/protocol/openid-connect/token');
 
     final response = await http.post(
@@ -152,7 +152,7 @@ class AuthService {
 }
 
 // Extension to safely normalize base64 strings
-extension on Base64Codec {
+extension Base64Padding on Base64Codec {
   String normalize(String base64str) {
     var str = base64str;
     while (str.length % 4 != 0) {
