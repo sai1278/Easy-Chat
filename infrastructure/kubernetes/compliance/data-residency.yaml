@@ -1,0 +1,259 @@
+## ═══════════════════════════════════════════════════════════════════════════
+## Regional Data Residency — Kubernetes Node Affinity Configuration
+##
+## Enforces GDPR Art.44-49: user data must be processed and stored in the
+## user's assigned data residency region. Pod topology constraints ensure
+## EU-resident user data never processes through US or AP nodes.
+## ═══════════════════════════════════════════════════════════════════════════
+
+## ─────────────────────────────────────────────────────────────────────────────
+## 1. Node Labels (apply to cluster nodes at provisioning time)
+##    Run: kubectl label node <node-name> topology.kubernetes.io/region=eu-west1
+## ─────────────────────────────────────────────────────────────────────────────
+
+## ─────────────────────────────────────────────────────────────────────────────
+## 2. EU-West1 Regional Deployment Override (applied via Helm region values)
+##    Ensures stateful services only run on EU-labeled nodes for GDPR compliance
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-primary-eu
+  namespace: default
+  labels:
+    app: postgres
+    region: eu-west1
+    data-residency: gdpr
+  annotations:
+    gdpr.easychat.app/region: "eu-west1"
+    gdpr.easychat.app/sovereignty: "gdpr"
+    gdpr.easychat.app/transfer-basis: "not-required-within-eu"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      region: eu-west1
+  template:
+    metadata:
+      labels:
+        app: postgres
+        region: eu-west1
+        data-residency: gdpr
+    spec:
+      # GDPR constraint: PostgreSQL pods MUST schedule on EU-labeled nodes only
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values: ["eu-west1"]
+                  - key: cloud.google.com/gke-nodepool
+                    operator: NotIn
+                    values: ["us-east1", "us-west1", "ap-southeast1"]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: region
+                    operator: In
+                    values: ["us-east1", "us-west1", "ap-southeast1"]
+              topologyKey: topology.kubernetes.io/zone
+      # Tolerate EU-dedicated compliance nodes
+      tolerations:
+        - key: "data-residency"
+          operator: "Equal"
+          value: "gdpr"
+          effect: "NoSchedule"
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: easychat
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc-eu-west1
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## 3. TopologySpreadConstraints for Regional Data Isolation
+##    Applied to all stateful services processing EU data
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-service-eu
+  namespace: default
+  labels:
+    app: chat-service
+    region: eu-west1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: chat-service
+      region: eu-west1
+  template:
+    metadata:
+      labels:
+        app: chat-service
+        region: eu-west1
+    spec:
+      # Spread across AZs within EU region only
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: chat-service
+              region: eu-west1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values: ["eu-west1"]
+      tolerations:
+        - key: "data-residency"
+          operator: "Equal"
+          value: "gdpr"
+          effect: "NoSchedule"
+      containers:
+        - name: chat-service
+          image: ghcr.io/easychat/chat-service:latest
+          env:
+            - name: DATA_REGION
+              value: "eu-west1"
+            - name: DATA_SOVEREIGNTY
+              value: "gdpr"
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## 4. PersistentVolumeClaims — Region-pinned storage
+##    EU: eu-west1 SSD storage class (data never leaves EU)
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc-eu-west1
+  namespace: default
+  labels:
+    region: eu-west1
+    data-residency: gdpr
+  annotations:
+    gdpr.easychat.app/region: "eu-west1"
+    gdpr.easychat.app/encryption: "aes-256-gcm"
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: eu-west1-ssd-encrypted  # Regional storage class with CMEK
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## 5. StorageClass — EU-West1 with Customer-Managed Encryption Keys (CMEK)
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: eu-west1-ssd-encrypted
+  labels:
+    data-residency: gdpr
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+    gdpr.easychat.app/encryption-standard: "AES-256-GCM"
+    gdpr.easychat.app/key-management: "Cloud KMS CMEK"
+provisioner: pd.csi.storage.gke.io
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain       # Retain for audit compliance — do not auto-delete
+allowVolumeExpansion: true
+parameters:
+  type: pd-ssd
+  replication-type: regional-pd
+  disk-encryption-key: projects/easychat-prod/locations/europe-west1/keyRings/easychat-gdpr/cryptoKeys/postgres-eu
+  # Restrict storage to EU nodes only
+  topology.gke.io/zone: europe-west1-b,europe-west1-c,europe-west1-d
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## 6. ResourceQuota — Compliance Namespace Resource Limits
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compliance-quota
+  namespace: default
+spec:
+  hard:
+    # Prevent compliance jobs from starving production workloads
+    requests.cpu: "2"
+    requests.memory: "2Gi"
+    limits.cpu: "4"
+    limits.memory: "4Gi"
+    pods: "20"
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## 7. ConfigMap — Regional Routing Configuration
+##    Used by compliance middleware to route users to correct data region
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-residency-config
+  namespace: default
+  labels:
+    component: compliance
+data:
+  # Region endpoint mapping for compliance middleware region routing
+  region-endpoints.json: |
+    {
+      "eu-west1":      "https://eu.api.easychat.app",
+      "us-east1":      "https://us.api.easychat.app",
+      "us-west1":      "https://us-west.api.easychat.app",
+      "ap-southeast1": "https://ap.api.easychat.app"
+    }
+
+  # IP CIDR → region mapping (used at account creation)
+  ip-region-mapping.json: |
+    {
+      "EU": "eu-west1",
+      "US": "us-east1",
+      "CA": "us-east1",
+      "SG": "ap-southeast1",
+      "AU": "ap-southeast1",
+      "IN": "ap-southeast1",
+      "DEFAULT": "us-east1"
+    }
+
+  # Sovereignty rules (which regions are subject to which regulation)
+  sovereignty-rules.json: |
+    {
+      "eu-west1":      {"regulation": "gdpr",  "cross_border_restricted": true},
+      "us-east1":      {"regulation": "ccpa",  "cross_border_restricted": false},
+      "us-west1":      {"regulation": "ccpa",  "cross_border_restricted": false},
+      "ap-southeast1": {"regulation": "pdpa",  "cross_border_restricted": true}
+    }

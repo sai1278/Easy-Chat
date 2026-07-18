@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apparmor-profiles
+  namespace: kube-system
+data:
+  profile-easychat: |
+    #include <tunables/global>
+
+    profile profile-easychat flags=(attach_disconnected) {
+      #include <abstractions/base>
+
+      # Enforce denying raw network socket creations
+      deny network raw,
+
+      # Deny execution of suspicious system binary folders
+      deny /bin/** wl,
+      deny /sbin/** wl,
+      deny /usr/bin/** wl,
+      deny /usr/sbin/** wl,
+
+      # Deny mount syscalls
+      deny mount,
+
+      # Allow standard binary executions from app workspace only
+      /server mr,
+      /lib/** r,
+      /usr/lib/** r,
+      /etc/ld.so.cache r,
+      /etc/resolv.conf r,
+      /etc/hosts r,
+      /etc/nsswitch.conf r,
+      /dev/urandom r,
+      /dev/random r,
+    }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8senforceseccompapparmor
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sEnforceSeccompAppArmor
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8senforceseccompapparmor
+
+        violation[{"msg": msg}] {
+          metadata := input.review.object.metadata
+          not metadata.annotations["container.apparmor.security.beta.kubernetes.io/nginx"] == "localhost/profile-easychat"
+          msg := "AppArmor profile 'profile-easychat' is not enforced on the container."
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.seccompProfile.type == "RuntimeDefault"
+          msg := sprintf("Seccomp profile type 'RuntimeDefault' is not set for container %v", [container.name])
+        }

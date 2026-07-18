@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+import "google/protobuf/timestamp.proto";
+
+service PresenceService {
+  rpc ReportHeartbeat (ReportHeartbeatRequest) returns (ReportHeartbeatResponse);
+  rpc SetVisibility (SetVisibilityRequest) returns (SetVisibilityResponse);
+}
+
+message ReportHeartbeatRequest {
+  string user_id = 1;
+  string h3_index = 2; // Snaps to Uber H3 grid snapped center
+}
+
+message ReportHeartbeatResponse {
+  bool success = 1;
+  google.protobuf.Timestamp next_expected_heartbeat = 2;
+}
+
+message SetVisibilityRequest {
+  string user_id = 1;
+  bool is_visible = 2;
+  string h3_index = 3;
+  int32 radius_meters = 4;
+}
+
+message SetVisibilityResponse {
+  bool success = 1;
+  google.protobuf.Timestamp updated_at = 2;
+}

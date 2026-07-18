@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: Enforce Cosign Image Signature Verification
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Enforces that all deployed containers in the default namespace matching
+      ghcr.io/easychat/* have valid Cosign signatures before pod admission.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - default
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/easychat/*"
+          attestations:
+            - predicateType: cosign.sigstore.dev/attestation/v1
+            - predicateType: https://slsa.dev/provenance/v0.2
+          # Verify image using Rekor public keyless OIDC identity or static public key
+          # Here we enforce validation using the Sigstore public certificate authorities
+          attestors:
+            - entries:
+                - keys:
+                    publicKeys: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4mXm...[Static Cosign Public Key]...
+                      -----END PUBLIC KEY-----

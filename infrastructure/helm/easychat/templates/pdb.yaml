@@ -1,0 +1,15 @@
+{{- range $name, $svc := .Values.services }}
+{{- if or (eq $name "gateway") (eq $name "auth") (eq $name "chat") (eq $name "nearby") (eq $name "presence") }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $svc.name }}-pdb
+  namespace: {{ $.Release.Namespace }}
+spec:
+  minAvailable: {{ if gt (int $svc.replicas) 2 }}2{{ else }}1{{ end }}
+  selector:
+    matchLabels:
+      app: {{ $svc.name }}
+---
+{{- end }}
+{{- end }}

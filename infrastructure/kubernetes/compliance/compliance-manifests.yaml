@@ -1,0 +1,285 @@
+## ─────────────────────────────────────────────────────────────────────────────
+## Data Retention CronJob — GDPR Art.5(1)(e) — Storage Limitation
+## Runs nightly at 02:00 UTC to enforce all retention policies
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: data-retention-enforcer
+  namespace: default
+  labels:
+    app: data-retention-enforcer
+    component: compliance
+    tier: gdpr
+  annotations:
+    gdpr.easychat.app/article: "Art.5(1)(e)"
+    gdpr.easychat.app/purpose: "storage-limitation"
+spec:
+  schedule: "0 2 * * *"       # 02:00 UTC daily
+  concurrencyPolicy: Forbid    # Never run two retention jobs simultaneously
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1-hour timeout
+      template:
+        metadata:
+          labels:
+            app: data-retention-enforcer
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: compliance-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: retention-enforcer
+              image: ghcr.io/easychat/compliance-service:latest
+              command: ["/app/compliance-service", "--mode=retention"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: easychat-secrets
+                      key: postgres-url
+                - name: SERVICE_REGION
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['topology.kubernetes.io/region']
+                - name: LOG_LEVEL
+                  value: "info"
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## DSR Deadline Monitor CronJob
+## Scans for Data Subject Requests approaching the GDPR 30-day deadline
+## Sends alerts if any DSR is within 72 hours of breach
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dsr-deadline-monitor
+  namespace: default
+  labels:
+    app: dsr-deadline-monitor
+    component: compliance
+  annotations:
+    gdpr.easychat.app/article: "Art.12"
+    gdpr.easychat.app/purpose: "response-deadline-enforcement"
+spec:
+  schedule: "0 * * * *"       # Every hour
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: dsr-deadline-monitor
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: compliance-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          containers:
+            - name: dsr-monitor
+              image: ghcr.io/easychat/compliance-service:latest
+              command: ["/app/compliance-service", "--mode=dsr-monitor"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: easychat-secrets
+                      key: postgres-url
+                - name: ALERT_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: easychat-secrets
+                      key: slack-compliance-webhook
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## Compliance Service Deployment
+## Serves GDPR privacy API endpoints (/api/v1/privacy/*)
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-service
+  namespace: default
+  labels:
+    app: compliance-service
+    component: compliance
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliance-service
+  template:
+    metadata:
+      labels:
+        app: compliance-service
+    spec:
+      serviceAccountName: compliance-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: compliance-service
+          image: ghcr.io/easychat/compliance-service:latest
+          command: ["/app/compliance-service", "--mode=server"]
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: postgres-url
+            - name: SERVICE_REGION
+              value: "eu-west1"           # Set per-region at deployment
+            - name: PORT
+              value: "8090"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-service
+  namespace: default
+spec:
+  selector:
+    app: compliance-service
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## ServiceAccount + RBAC for Compliance Service
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliance-sa
+  namespace: default
+  annotations:
+    # GCP Workload Identity binding (maps to compliance-sa@project.iam.gserviceaccount.com)
+    iam.gke.io/gcp-service-account: compliance-sa@easychat-prod.iam.gserviceaccount.com
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## Network Policy: Compliance Service Access Control
+## Only gateway may call compliance endpoints; compliance may call postgres only
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: compliance-service-netpol
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: compliance-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway-service
+      ports:
+        - protocol: TCP
+          port: 8090
+  egress:
+    # Allow PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+## ─────────────────────────────────────────────────────────────────────────────
+## PodDisruptionBudget — ensure compliance service survives node drain
+## ─────────────────────────────────────────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: compliance-service-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: compliance-service

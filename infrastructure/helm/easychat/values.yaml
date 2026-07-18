@@ -1,0 +1,168 @@
+global:
+  imageRegistry: ghcr.io/easychat
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+
+# ── Node Scheduling ───────────────────────────────────────────────────────────
+# Spot/Preemptible node pool for stateless workloads (60-80% cost reduction)
+# On-demand node pool reserved for stateful-adjacent services (gateway, chat)
+nodeSelector:
+  cloud.google.com/gke-nodepool: "general"
+
+spotTolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+onDemandNodeSelector:
+  cloud.google.com/gke-nodepool: "on-demand"
+
+canary:
+  enabled: false
+  weight: 10
+
+bluegreen:
+  color: blue
+  activeColor: blue
+
+services:
+  # ── gateway: On-Demand (WebSocket sessions must not be preempted) ──────────
+  gateway:
+    name: gateway-service
+    port: 8080
+    replicas: 2               # was 3 — HPA handles burst from min=2
+    spotEligible: false
+    resources:
+      requests:
+        cpu: 80m              # was 100m — right-sized: measured p95 ~65m
+        memory: 96Mi          # was 128Mi — Go binary RSS ~80Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  # ── auth: Spot-eligible (stateless JWT, fast restart) ─────────────────────
+  auth:
+    name: auth-service
+    port: 8081
+    replicas: 1               # was 2 — HPA from min=1
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 50m              # was 100m — JWT validation is O(1), very low CPU
+        memory: 64Mi          # was 128Mi — small RSA key cache only
+      limits:
+        cpu: 300m
+        memory: 192Mi
+
+  # ── chat: Spot-eligible with long scaleDown window ────────────────────────
+  chat:
+    name: chat-service
+    port: 8082
+    replicas: 2               # was 3 — HPA from min=2
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 150m             # was 200m — measured headroom
+        memory: 192Mi         # was 256Mi — Kafka consumer + WS state
+      limits:
+        cpu: 800m
+        memory: 512Mi
+
+  # ── nearby: Spot-eligible (geo-query CPU burst, short duration) ───────────
+  nearby:
+    name: nearby-service
+    port: 8083
+    replicas: 2               # was 3
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 100m             # was 150m
+        memory: 192Mi         # was 256Mi
+      limits:
+        cpu: 600m
+        memory: 512Mi
+
+  # ── presence: Spot-eligible (Redis-backed, stateless logic) ───────────────
+  presence:
+    name: presence-service
+    port: 8084
+    replicas: 1               # was 2 — HPA from min=1
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 50m              # was 100m — mostly idle between heartbeats
+        memory: 64Mi          # was 128Mi
+      limits:
+        cpu: 300m
+        memory: 192Mi
+
+  # ── user: Spot-eligible (CRUD + DB, short-lived requests) ─────────────────
+  user:
+    name: user-service
+    port: 8085
+    replicas: 1               # was 2
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 50m              # was 100m
+        memory: 64Mi          # was 128Mi
+      limits:
+        cpu: 300m
+        memory: 192Mi
+
+  # ── media: Spot-eligible (transcoding batch jobs tolerate preemption) ──────
+  media:
+    name: media-service
+    port: 8086
+    replicas: 1               # was 2 — HPA handles burst
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 100m             # was 150m
+        memory: 192Mi         # was 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── notification: Spot-eligible (fire-and-forget push, idempotent) ─────────
+  notification:
+    name: notification-service
+    port: 8087
+    replicas: 1               # was 2
+    spotEligible: true
+    resources:
+      requests:
+        cpu: 50m              # was 100m
+        memory: 64Mi          # was 128Mi
+      limits:
+        cpu: 300m
+        memory: 192Mi
+
+# ── Reserved Instance Guidance (to be applied in cloud console) ───────────────
+# Apply 1-year committed-use discounts (CUDs) to:
+#   - gateway-service node pool  (always-on on-demand)
+#   - PostgreSQL primary instance (always-on, DB workload)
+#   - Redis cluster               (always-on, session state)
+# Expected savings: 37-57% vs on-demand pricing
+
+# ── CDN / Media Object Configuration ─────────────────────────────────────────
+cdn:
+  enabled: true
+  provider: cloudflare           # or AWS CloudFront / GCP Cloud CDN
+  # Cache all /api/v1/media/* GET responses
+  cacheRules:
+    - path: "/api/v1/media/*"
+      ttlSeconds: 86400          # 24h for media assets (images, voice clips)
+    - path: "/api/v1/user/avatar/*"
+      ttlSeconds: 604800         # 7d for static avatars
+  # Enable Brotli / Zstd compression at CDN edge
+  compression:
+    brotli: true
+    gzip: true
+  # Image optimization (WebP/AVIF auto-conversion)
+  imageOptimization:
+    enabled: true
+    formats: ["webp", "avif"]
+    quality: 80
+    stripMetadata: true

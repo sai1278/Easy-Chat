@@ -1,0 +1,10 @@
+apiVersion: dr.easychat.local/v1alpha1
+kind: DisasterRecoveryPolicy
+metadata:
+  name: easychat-dr-policy
+  namespace: default
+spec:
+  primaryRegion: "us-east1"
+  secondaryRegion: "us-west1"
+  activeRegion: "us-east1"
+  failureThreshold: 3

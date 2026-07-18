@@ -1,0 +1,92 @@
+# Production CI/CD & Quality Verification Workflow
+name: Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-quality-and-build:
+    name: Go Microservices Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Verify Go Modules & Workspace
+        run: |
+          go work sync
+
+      - name: Run Go Unit Tests
+        run: |
+          go test ./apps/backend/... -v -race -covermode=atomic
+
+      - name: Build Microservice Binaries
+        run: |
+          mkdir -p bin
+          go build -o bin/gateway ./apps/backend/services/gateway/cmd/gateway
+          go build -o bin/auth ./apps/backend/services/auth/cmd/auth
+          go build -o bin/user ./apps/backend/services/user/cmd/user
+          go build -o bin/chat ./apps/backend/services/chat/cmd/chat
+          go build -o bin/nearby ./apps/backend/services/nearby/cmd/nearby
+          go build -o bin/presence ./apps/backend/services/presence/cmd/presence
+          go build -o bin/media ./apps/backend/services/media/cmd/media
+          go build -o bin/notification ./apps/backend/services/notification/cmd/notification
+
+  frontend-quality-and-build:
+    name: Flutter Application Analysis & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter Code
+        run: flutter analyze
+
+      - name: Run Flutter Unit Tests
+        run: flutter test
+
+      - name: Build Android APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+  security-scan:
+    name: Security & Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'

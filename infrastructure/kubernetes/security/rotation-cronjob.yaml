@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: credential-rotation-job
+  namespace: default
+spec:
+  schedule: "0 0 * * *" # Daily rotation execution at midnight
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: credential-rotation-sa
+          containers:
+            - name: rotator
+              image: bitnami/kubectl:1.29
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+                  echo "Starting credentials rotation sequence..."
+
+                  # 1. Rotate JWT token key pairs and update local secrets safely
+                  NEW_SIGNING_KEY=$(head -c 32 /dev/urandom | base64)
+                  kubectl patch secret easychat-secrets -p "{\"stringData\":{\"gateway-token-secret\":\"${NEW_SIGNING_KEY}\"}}"
+                  echo "JWT signing key rotated successfully."
+
+                  # 2. Trigger cert-manager certificate renewal
+                  # Simulates manual trigger for Let's Encrypt renewal
+                  kubectl annotate certificate easychat-tls-cert "cert-manager.io/renew-at=$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" --overwrite
+                  echo "TLS Certificate renewal request dispatched."
+
+                  # 3. Gracefully restart services to apply key updates
+                  kubectl rollout restart deployment/gateway-service
+                  kubectl rollout restart deployment/auth-service
+                  echo "Rollout restart triggered. Rotation sequence complete."
+          restartPolicy: OnFailure

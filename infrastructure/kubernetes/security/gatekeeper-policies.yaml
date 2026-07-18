@@ -1,0 +1,48 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8sallowedregistries
+  annotations:
+    metadata.gatekeeper.sh/title: Allowed Container Registries
+    metadata.gatekeeper.sh/description: >-
+      Requires all container images to originate from approved registry subdomains.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sAllowedRegistries
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            registries:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sallowedregistries
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          satisfied := [good | registry = input.parameters.registries[_]; good = startswith(container.image, registry)]
+          not any(satisfied)
+          msg := sprintf("Container image '%v' originates from an unauthorized registry.", [container.image])
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sAllowedRegistries
+metadata:
+  name: enforce-approved-registry
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces:
+      - default
+  parameters:
+    registries:
+      - "ghcr.io/easychat/"
+      - "gcr.io/distroless/"

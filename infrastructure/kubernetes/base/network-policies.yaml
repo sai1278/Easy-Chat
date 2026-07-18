@@ -1,0 +1,195 @@
+# network-policies.yaml
+# Zero Trust Kubernetes Network Policies for Nearby Connect
+# Enforces a Default DENY policy for all namespaces and explicitly whitelists service routes.
+
+---
+# 1. DEFAULT DENY ALL INGRESS & EGRESS
+# Applied to all pods in the namespaces: gateway, auth, redis, signaling, telemetry.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# 2. WEBSOCKET GATEWAY TRAFFIC POLICY
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-network-policy
+  namespace: gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: websocket-gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Ingress exclusively from the TLS Ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: controller
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow Egress to Redis (Port 6379) in the redis namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: redis
+      podSelector:
+        matchLabels:
+          app: redis-cluster
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow Egress to Auth Service (Port 8080) in the auth namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: auth
+      podSelector:
+        matchLabels:
+          app: auth-service
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow Egress to WebRTC Signaling Service (Port 9000) in the signaling namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: signaling
+      podSelector:
+        matchLabels:
+          app: signaling-service
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Allow Egress to OpenTelemetry Collector (Ports 4317/4318) in the telemetry namespace
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: telemetry
+      podSelector:
+        matchLabels:
+          app: otel-collector
+    ports:
+    - protocol: TCP
+      port: 4317
+    - protocol: TCP
+      port: 4318
+  # Allow DNS queries to kube-dns system pods
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# 3. REDIS CLUSTER ISOLATION POLICY
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: redis
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-cluster
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Limit access exclusively to the WebSocket Gateway and Auth Service
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: gateway
+      podSelector:
+        matchLabels:
+          app: websocket-gateway
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: auth
+      podSelector:
+        matchLabels:
+          app: auth-service
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress:
+  # Block all egress from Redis Cluster. Redis requires no outbound network communication.
+  []
+
+---
+# 4. AUTH SERVICE TRAFFIC POLICY
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-network-policy
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app: auth-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow incoming queries exclusively from the WebSocket Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: gateway
+      podSelector:
+        matchLabels:
+          app: websocket-gateway
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow access to Redis (Port 6379)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: redis
+      podSelector:
+        matchLabels:
+          app: redis-cluster
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow external egress strictly to KMS key endpoints (HTTPS Port 443)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0 # Restrict using egress firewalls / cloud NAT routers in production
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow DNS queries
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

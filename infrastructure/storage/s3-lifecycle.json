@@ -1,0 +1,100 @@
+{
+  "Rules": [
+    {
+      "ID": "media-assets-tiering",
+      "Filter": { "Prefix": "media/" },
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 7,
+          "StorageClass": "STANDARD_IA",
+          "Comment": "Move media to Infrequent Access after 7 days (59% cost reduction vs Standard)"
+        },
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER_IR",
+          "Comment": "Glacier Instant Retrieval after 30 days (82% cost reduction; <1s retrieval)"
+        },
+        {
+          "Days": 90,
+          "StorageClass": "DEEP_ARCHIVE",
+          "Comment": "Deep Archive after 90 days (95% cost reduction; suitable for long-term compliance)"
+        }
+      ],
+      "Expiration": {
+        "Days": 365,
+        "Comment": "Delete media assets older than 365 days (soft delete + user consent required)"
+      }
+    },
+    {
+      "ID": "postgres-wal-archive-tiering",
+      "Filter": { "Prefix": "postgres-archive/" },
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 7,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER_IR"
+        },
+        {
+          "Days": 90,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 180,
+        "Comment": "Purge WAL archives beyond 180 days PITR window"
+      }
+    },
+    {
+      "ID": "postgres-rdb-backups",
+      "Filter": { "Prefix": "postgres-backups/" },
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 1,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 14,
+          "StorageClass": "GLACIER_IR"
+        }
+      ],
+      "Expiration": {
+        "Days": 90,
+        "Comment": "Retain 90 days of full RDB backups for compliance"
+      }
+    },
+    {
+      "ID": "logs-tiering",
+      "Filter": { "Prefix": "logs/" },
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 3,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER_IR"
+        }
+      ],
+      "Expiration": {
+        "Days": 90,
+        "Comment": "Application logs: 90-day retention (adjust for compliance requirements)"
+      }
+    },
+    {
+      "ID": "abort-incomplete-multipart",
+      "Filter": { "Prefix": "" },
+      "Status": "Enabled",
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 1,
+        "Comment": "Prevents orphaned multipart upload storage cost accumulation"
+      }
+    }
+  ]
+}

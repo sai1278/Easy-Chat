@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+import "google/protobuf/timestamp.proto";
+
+service MediaService {
+  rpc GetUploadToken (GetUploadTokenRequest) returns (GetUploadTokenResponse);
+  rpc VerifyUpload (VerifyUploadRequest) returns (VerifyUploadResponse);
+}
+
+message GetUploadTokenRequest {
+  string user_id = 1;
+  string file_name = 2;
+  int64 file_size_bytes = 3;
+  string mime_type = 4;
+}
+
+message GetUploadTokenResponse {
+  string media_id = 1;
+  string upload_url = 2;
+  google.protobuf.Timestamp expires_at = 3; // Must match standard 10-minute expiry TTL
+}
+
+message VerifyUploadRequest {
+  string media_id = 1;
+  string signature = 2;
+  int64 expiry_unix = 3;
+}
+
+message VerifyUploadResponse {
+  bool is_valid = 1;
+  string object_key = 2;
+}

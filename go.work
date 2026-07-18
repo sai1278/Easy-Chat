@@ -1,0 +1,17 @@
+go 1.26.4
+
+use (
+	./apps/backend
+	./apps/backend/services/auth
+	./apps/backend/services/chat
+	./apps/backend/services/dr-controller
+	./apps/backend/services/gateway
+	./apps/backend/services/media
+	./apps/backend/services/nearby
+	./apps/backend/services/notification
+	./apps/backend/services/presence
+	./apps/backend/services/user
+	./apps/backend/shared
+	./tests/contracts
+	./tests/load
+)

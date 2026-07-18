@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+import "google/protobuf/timestamp.proto";
+
+service UserService {
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser (GetUserRequest) returns (GetUserResponse);
+  rpc UpdateProfile (UpdateProfileRequest) returns (UpdateProfileResponse);
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+message CreateUserRequest {
+  string device_challenge = 1;
+}
+
+message CreateUserResponse {
+  string user_id = 1;
+  string pseudonym = 2;
+  int32 avatar_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  string user_id = 1;
+  string pseudonym = 2;
+  int32 avatar_id = 3;
+  string status = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message UpdateProfileRequest {
+  string user_id = 1;
+  bool regenerate_pseudonym = 2;
+  int32 avatar_id = 3;
+}
+
+message UpdateProfileResponse {
+  string user_id = 1;
+  string pseudonym = 2;
+  int32 avatar_id = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message DeleteUserRequest {
+  string user_id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+}

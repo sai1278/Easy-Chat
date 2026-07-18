@@ -1,0 +1,61 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-container-security
+  annotations:
+    policies.kyverno.io/title: Enforce Security Contexts and Resource Limits
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Enforces read-only root filesystems, run-as-non-root execution, dropping
+      capabilities, and setting cpu/memory resource limits.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-non-root-and-readonly-rootfs
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        message: "Pod containers must run as non-root with a read-only root filesystem."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
+    - name: require-resource-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        message: "All containers must define CPU and Memory requests and limits."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+    - name: restrict-mutable-image-tags
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        message: "Deploying mutable container image tags (e.g. latest, dev) is forbidden. Use OCI digests or semantic versions."
+        pattern:
+          spec:
+            containers:
+              - image: "!*latest & !*dev & !*staging"

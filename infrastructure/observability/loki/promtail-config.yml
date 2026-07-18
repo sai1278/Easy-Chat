@@ -1,0 +1,47 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: easychat-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: easychat-services
+          __path__: /var/log/easychat/*.log
+
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_container_name]
+        target_label: container
+      - target_label: __path__
+        replacement: /var/log/pods/*$1/*.log
+
+  - job_name: security-audit-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-modsec-audit
+          __path__: /var/log/nginx/modsec_audit.log
+
+  - job_name: falco-runtime-alerts
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: falco-alerts
+          __path__: /var/log/falco/alerts.log

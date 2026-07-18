@@ -1,0 +1,44 @@
+# Dockerfile.backend
+# Hardened Multi-Stage Docker Build Blueprint for Go Services
+# Optimized for Nearby Connect: Static, stripped, shell-free distroless runtime.
+
+# =====================================================
+# STAGE 1: COMPILATION BUILD ENVIRONMENT
+# =====================================================
+FROM golang:1.22-alpine AS builder
+
+# Force POSIX shell execution safety settings
+RUN set -eux; \
+    apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+# Retrieve dependency matrices and source trees
+COPY go.work ./
+COPY apps/backend/ ./apps/backend/
+
+# Validate and sync workspace dependencies
+RUN go work sync
+
+# Compile statically linked binary dynamically based on SERVICE_NAME build-arg
+ARG SERVICE_NAME
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w -extldflags '-static'" -o /bin/server ./apps/backend/services/${SERVICE_NAME}/cmd/${SERVICE_NAME}/main.go
+
+# =====================================================
+# STAGE 2: SECURE RUNTIME DEPLOYMENT
+# =====================================================
+# Use Google Distroless static image containing ca-certificates but no package managers or shells
+FROM gcr.io/distroless/static-debian12:nonroot
+
+# Run as non-root user (UID 65532 is assigned to user nonroot in distroless images)
+USER 65532:65532
+
+# Copy the compiled statically linked binary from builder stage
+COPY --from=builder --chown=nonroot:nonroot /bin/server /server
+
+# Expose default HTTP service port
+EXPOSE 8080
+
+# Execute server as entrypoint
+ENTRYPOINT ["/server"]

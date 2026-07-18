@@ -1,0 +1,52 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: redis-network-latency
+  namespace: default
+spec:
+  action: delay
+  mode: fixed
+  value: '10%'
+  delay:
+    latency: '150ms'
+    jitter: '10ms'
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: redis-service
+  direction: to
+  target:
+    selector:
+      namespaces:
+        - default
+      labelSelectors:
+        app: chat-service
+  duration: '5m'
+  scheduler:
+    cron: '*/10 * * * *'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: postgres-packet-loss
+  namespace: default
+spec:
+  action: loss
+  mode: fixed
+  value: '10%'
+  loss:
+    loss: '10'
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: postgres-service
+  direction: to
+  target:
+    selector:
+      namespaces:
+        - default
+      labelSelectors:
+        app: auth-service
+  duration: '3m'

@@ -1,0 +1,430 @@
+## ─────────────────────────────────────────────────────────────────────────────
+## SLO Burn-Rate Alert Rules — Nearby Connect (EasyChat)
+## Based on Google SRE multi-window burn-rate alerting model
+## Reference: https://sre.google/workbook/alerting-on-slos/
+##
+## Error Budget Windows:
+##   30-day SLO → 1 month error budget
+##   SLO availability 99.9% → 43.2 min error budget/month
+## ─────────────────────────────────────────────────────────────────────────────
+
+groups:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 1: API Availability SLO Burn Alerts
+  # SLO: 99.9% of requests succeed (HTTP non-5xx) over 30 days
+  # Error budget: 0.1% = 43.2 min/month
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.api.availability
+    rules:
+
+      # ── SLI: error rate ratio ────────────────────────────────────────────────
+      - record: slo:api_error_rate:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[1h])) by (service)
+          /
+          sum(rate(http_requests_total[1h])) by (service)
+
+      - record: slo:api_error_rate:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+
+      - record: slo:api_error_rate:ratio_rate6h
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[6h])) by (service)
+          /
+          sum(rate(http_requests_total[6h])) by (service)
+
+      - record: slo:api_error_rate:ratio_rate3d
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[3d])) by (service)
+          /
+          sum(rate(http_requests_total[3d])) by (service)
+
+      # ── Page: 14.4x burn (consumes 2% budget in 1h) — CRITICAL ──────────────
+      - alert: SLOBurnRateCritical_APIAvailability
+        expr: |
+          (slo:api_error_rate:ratio_rate1h > (14.4 * 0.001))
+          and
+          (slo:api_error_rate:ratio_rate5m > (14.4 * 0.001))
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+          slo: api_availability
+          burn_window: "1h+5m"
+        annotations:
+          summary: "CRITICAL: API availability SLO burning 14.4x — page on-call"
+          description: |
+            Service {{ $labels.service }} error rate {{ $value | humanizePercentage }}
+            consuming error budget at 14.4x rate. At this rate the 30-day budget
+            will be exhausted in ~2 hours.
+          runbook: "https://wiki.internal/runbooks/slo-burn-critical"
+          dashboard: "https://grafana.internal/d/slo-burn"
+
+      # ── Page: 6x burn (consumes 5% budget in 6h) — CRITICAL ─────────────────
+      - alert: SLOBurnRateHigh_APIAvailability
+        expr: |
+          (slo:api_error_rate:ratio_rate6h > (6 * 0.001))
+          and
+          (slo:api_error_rate:ratio_rate1h > (6 * 0.001))
+        for: 15m
+        labels:
+          severity: critical
+          team: sre
+          slo: api_availability
+          burn_window: "6h+1h"
+        annotations:
+          summary: "CRITICAL: API availability SLO burning 6x — page on-call"
+          description: |
+            Service {{ $labels.service }} consuming error budget at 6x rate over 6h.
+            Monthly budget exhausted in ~5 days at current rate.
+          runbook: "https://wiki.internal/runbooks/slo-burn-high"
+
+      # ── Ticket: 3x burn (consumes 10% budget in 3d) — WARNING ───────────────
+      - alert: SLOBurnRateMedium_APIAvailability
+        expr: |
+          (slo:api_error_rate:ratio_rate3d > (3 * 0.001))
+          and
+          (slo:api_error_rate:ratio_rate6h > (3 * 0.001))
+        for: 1h
+        labels:
+          severity: warning
+          team: sre
+          slo: api_availability
+          burn_window: "3d+6h"
+        annotations:
+          summary: "WARNING: API availability SLO burning 3x — create ticket"
+          description: |
+            Service {{ $labels.service }} slowly burning error budget at 3x.
+            Budget exhausted in ~10 days. Investigate non-urgently.
+          runbook: "https://wiki.internal/runbooks/slo-burn-medium"
+
+      # ── Error Budget Exhaustion Forecast ─────────────────────────────────────
+      - alert: ErrorBudgetExhausted_APIAvailability
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{status!~"5.."}[30d])) by (service)
+              /
+              sum(rate(http_requests_total[30d])) by (service)
+            )
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          slo: api_availability
+        annotations:
+          summary: "CRITICAL: 30-day API error budget EXHAUSTED for {{ $labels.service }}"
+          description: |
+            SLO availability < 99.9% over the past 30 days.
+            All feature deployments must be FROZEN until budget is restored.
+          runbook: "https://wiki.internal/runbooks/error-budget-exhausted"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 2: API Latency SLO Burn Alerts
+  # SLO: 99% of requests < 200ms over 30 days
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.api.latency
+    rules:
+
+      - record: slo:api_latency:p99_rate5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          )
+
+      - record: slo:api_latency:p99_rate1h
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[1h])) by (le, service)
+          )
+
+      - alert: SLOBurnRateCritical_APILatency
+        expr: |
+          slo:api_latency:p99_rate5m > 0.500
+          and
+          slo:api_latency:p99_rate1h > 0.300
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          slo: api_latency
+        annotations:
+          summary: "CRITICAL: p99 latency {{ $value | humanizeDuration }} on {{ $labels.service }}"
+          description: |
+            Sustained p99 latency > 500ms (5m) and > 300ms (1h).
+            SLO target is 200ms p99. Page on-call immediately.
+          runbook: "https://wiki.internal/runbooks/high-latency"
+
+      - alert: SLOBurnRateWarning_APILatency
+        expr: slo:api_latency:p99_rate1h > 0.200
+        for: 15m
+        labels:
+          severity: warning
+          team: sre
+          slo: api_latency
+        annotations:
+          summary: "WARNING: p99 latency elevated on {{ $labels.service }}"
+          description: |
+            p99 > 200ms sustained for 15m on {{ $labels.service }}.
+            Error budget burn starting. Investigate before it escalates.
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 3: WebSocket Availability SLO
+  # SLO: 99.9% connection uptime over 7 days
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.websocket.availability
+    rules:
+
+      - record: slo:ws_error_rate:ratio_rate1h
+        expr: |
+          sum(rate(websocket_failures_total[1h]))
+          /
+          sum(rate(websocket_total_sessions[1h]))
+
+      - alert: SLOBurnRateCritical_WebSocket
+        expr: slo:ws_error_rate:ratio_rate1h > (14.4 * 0.001)
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          slo: websocket_availability
+        annotations:
+          summary: "CRITICAL: WebSocket SLO burning 14.4x — page on-call"
+          description: "WS failure rate {{ $value | humanizePercentage }}. Chat and presence are degraded."
+          runbook: "https://wiki.internal/runbooks/websocket-degraded"
+
+      - alert: WebSocketMassiveDrop
+        expr: delta(websocket_active_connections[5m]) < -500
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Mass WebSocket disconnect: {{ $value }} connections dropped"
+          description: "Possible gateway crash, network partition, or TLS cert rotation issue."
+          runbook: "https://wiki.internal/runbooks/websocket-mass-drop"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 4: Database SLO
+  # SLO: 99% of queries < 50ms over 30 days
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.database
+    rules:
+
+      - record: slo:db_latency:p99_rate5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(db_query_duration_seconds_bucket[5m])) by (le, service)
+          )
+
+      - alert: SLOBurnRateCritical_DatabaseLatency
+        expr: slo:db_latency:p99_rate5m > 0.200
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          slo: db_latency
+        annotations:
+          summary: "CRITICAL: DB p99 latency {{ $value | humanizeDuration }} on {{ $labels.service }}"
+          description: "PostgreSQL p99 > 200ms. SLO is 50ms. Check slow query log, connection pool saturation, and lock waits."
+          runbook: "https://wiki.internal/runbooks/db-high-latency"
+
+      - alert: DatabaseConnectionPoolSaturation
+        expr: |
+          sum(db_pool_connections_used) by (service)
+          /
+          sum(db_pool_connections_max) by (service) > 0.90
+        for: 3m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "DB connection pool > 90% saturated on {{ $labels.service }}"
+          description: "Pool exhaustion imminent. Queries will start timing out. Check PgBouncer and max_connections."
+          runbook: "https://wiki.internal/runbooks/db-pool-saturation"
+
+      - alert: PostgreSQLReplicationLagHigh
+        expr: pg_replication_lag_seconds > 30
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "PostgreSQL replication lag > 30s — RPO SLA at risk"
+          description: "Replication lag {{ $value }}s. DR failover data loss window exceeding RPO target."
+          runbook: "https://wiki.internal/runbooks/postgres-replication-lag"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 5: Redis SLO + Capacity
+  # SLO: 99.9% of operations < 10ms
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.redis
+    rules:
+
+      - alert: SLOBurnRateCritical_RedisLatency
+        expr: |
+          histogram_quantile(0.999,
+            sum(rate(redis_latency_seconds_bucket[5m])) by (le)
+          ) > 0.050
+        for: 3m
+        labels:
+          severity: critical
+          team: sre
+          slo: redis_latency
+        annotations:
+          summary: "CRITICAL: Redis p99.9 latency {{ $value | humanizeDuration }}"
+          description: "Redis latency SLO at risk. Check memory pressure, eviction rate, and network saturation."
+          runbook: "https://wiki.internal/runbooks/redis-high-latency"
+
+      - alert: RedisMemoryPressureHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Redis memory usage > 85% of maxmemory"
+          description: "Eviction rate will spike at 100%. Current: {{ $value | humanizePercentage }}."
+          runbook: "https://wiki.internal/runbooks/redis-memory-pressure"
+
+      - alert: RedisEvictionRateSpike
+        expr: rate(redis_evicted_keys_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Redis evicting {{ $value | humanize }} keys/s"
+          description: "High eviction rate indicates memory pressure. Session data may be silently lost."
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 6: Kafka Pipeline SLO
+  # SLO: consumer lag < 500 messages sustained
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: slo.kafka
+    rules:
+
+      - alert: KafkaConsumerLagCritical
+        expr: sum(kafka_consumer_lag_messages) by (service, topic, group) > 5000
+        for: 3m
+        labels:
+          severity: critical
+          team: sre
+          slo: kafka_lag
+        annotations:
+          summary: "CRITICAL: Kafka lag {{ $value }} on {{ $labels.topic }}/{{ $labels.group }}"
+          description: "Consumer critically behind. Messages older than SLA threshold. Check consumer health and partition assignment."
+          runbook: "https://wiki.internal/runbooks/kafka-consumer-lag"
+
+      - alert: KafkaConsumerLagWarning
+        expr: sum(kafka_consumer_lag_messages) by (service, topic, group) > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+          slo: kafka_lag
+        annotations:
+          summary: "WARNING: Kafka lag {{ $value }} on {{ $labels.topic }}/{{ $labels.group }}"
+          description: "Consumer falling behind SLO threshold of 500 messages. Monitor for escalation."
+
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers_total < 3
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Kafka broker down: only {{ $value }} brokers available"
+          description: "Cluster below quorum. Partition leadership may be lost."
+          runbook: "https://wiki.internal/runbooks/kafka-broker-down"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 7: Kubernetes Infrastructure
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: sre.kubernetes
+    rules:
+
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Pod {{ $labels.pod }} crash-looping in {{ $labels.namespace }}"
+          description: "Container {{ $labels.container }} restarting. Check OOMKill, liveness probe failures, or application panics."
+          runbook: "https://wiki.internal/runbooks/pod-crash-loop"
+
+      - alert: NodeMemoryPressure
+        expr: |
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
+          / node_memory_MemTotal_bytes > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Node {{ $labels.instance }} memory > 90%"
+          description: "OOMKill risk. Pods may be evicted. Check for memory leaks and HPA scale-up."
+
+      - alert: NodeDiskPressure
+        expr: |
+          (node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_free_bytes{mountpoint="/"})
+          / node_filesystem_size_bytes{mountpoint="/"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Node {{ $labels.instance }} disk > 85%"
+          description: "Disk filling. Log accumulation or container layer leak likely. Run node cleanup."
+
+      - alert: HPAMaxReplicasReached
+        expr: |
+          kube_horizontalpodautoscaler_status_current_replicas
+          >= kube_horizontalpodautoscaler_spec_max_replicas
+        for: 10m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "HPA {{ $labels.horizontalpodautoscaler }} at max replicas — capacity ceiling hit"
+          description: "Service cannot scale further. Traffic may start queuing. Review capacity plan."
+          runbook: "https://wiki.internal/runbooks/hpa-maxed"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GROUP 8: Deployment / Release Safety Gates
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: sre.release
+    rules:
+
+      - alert: CanaryErrorRateExceedsThreshold
+        expr: |
+          sum(rate(http_requests_total{status=~"5..", track="canary"}[2m])) by (service)
+          /
+          sum(rate(http_requests_total{track="canary"}[2m])) by (service) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+          action: auto_rollback
+        annotations:
+          summary: "Canary error rate > 1% on {{ $labels.service }} — ABORT ROLLOUT"
+          description: "Automated rollback should trigger. Error rate: {{ $value | humanizePercentage }}."
+          runbook: "https://wiki.internal/runbooks/canary-rollback"
+
+      - alert: DeploymentRolloutStuck
+        expr: |
+          kube_deployment_status_condition{condition="Progressing",status="false"} == 1
+        for: 10m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Deployment {{ $labels.deployment }} rollout STUCK"
+          description: "Deployment has not progressed for 10m. Check readiness probes and pod events."

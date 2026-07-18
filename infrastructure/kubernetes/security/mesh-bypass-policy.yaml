@@ -1,0 +1,45 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-by-default
+  namespace: default
+spec:
+  action: DENY
+  rules:
+    - from:
+        - source:
+            # Deny any request that lacks a valid SPIFFE ID or has a blank principal
+            notPrincipals: ["*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: gateway-spiffe-routing
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: gateway-service
+  action: ALLOW
+  rules:
+    # Only allow ingress gateway SPIFFE principal to route to gateway pods
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-spiffe-mesh
+  namespace: default
+spec:
+  selector:
+    # Applies to all microservices (auth, chat, nearby, user, etc.)
+    matchLabels:
+      mesh-service: "true"
+  action: ALLOW
+  rules:
+    # Enforce that only gateway service SPIFFE identity can talk to backend microservices
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/gateway-service-account"]

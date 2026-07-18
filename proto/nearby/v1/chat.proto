@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+import "google/protobuf/timestamp.proto";
+
+service ChatService {
+  rpc RequestChat (RequestChatRequest) returns (RequestChatResponse);
+  rpc RespondChat (RespondChatRequest) returns (RespondChatResponse);
+  rpc CloseSession (CloseSessionRequest) returns (CloseSessionResponse);
+  
+  // Bi-directional streaming for WebSocket gateway packet multiplexing
+  rpc StreamChat (stream StreamPacket) returns (stream StreamPacket);
+}
+
+message RequestChatRequest {
+  string sender_id = 1;
+  string target_user_id = 2;
+}
+
+message RequestChatResponse {
+  string request_id = 1;
+  string status = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message RespondChatRequest {
+  string request_id = 1;
+  string responder_id = 2;
+  bool accept = 3;
+}
+
+message RespondChatResponse {
+  string session_id = 1;
+  string status = 2;
+}
+
+message CloseSessionRequest {
+  string session_id = 1;
+  string requestor_id = 2;
+}
+
+message CloseSessionResponse {
+  bool success = 1;
+}
+
+// WebSocket Stream signaling types
+message StreamPacket {
+  string session_id = 1;
+  string sender_id = 2;
+  oneof payload {
+    ChatMessage message = 3;
+    TypingIndicator typing = 4;
+    DeliveryReceipt receipt = 5;
+  }
+}
+
+message ChatMessage {
+  string message_id = 1;
+  bytes encrypted_content = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message TypingIndicator {
+  bool is_typing = 1;
+}
+
+message DeliveryReceipt {
+  string message_id = 1;
+  string status = 2; // e.g. "DELIVERED", "READ"
+}

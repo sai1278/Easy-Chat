@@ -1,0 +1,91 @@
+{{- range $name, $svc := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc.name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: {{ $svc.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{ $svc.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc.name }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.global.imageRegistry }}/{{ $name }}:{{ $.Values.global.imageTag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $svc.port }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: easychat-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: database-password
+            {{- if eq $name "gateway" }}
+            - name: GATEWAY_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: gateway-token-secret
+            {{- end }}
+            {{- if eq $name "media" }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: aws-secret-access-key
+            {{- end }}
+          {{- if eq $name "auth" }}
+          volumeMounts:
+            - name: rsa-secrets
+              mountPath: "/var/run/secrets/nearby.com"
+              readOnly: true
+          {{- end }}
+      {{- if eq $name "auth" }}
+      volumes:
+        - name: rsa-secrets
+          secret:
+            secretName: easychat-secrets
+            items:
+              - key: rsa-private-key
+                path: rsa-private.pem
+      {{- end }}
+---
+{{- end }}

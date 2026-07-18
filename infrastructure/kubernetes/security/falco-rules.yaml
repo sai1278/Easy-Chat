@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-custom-rules
+  namespace: default
+data:
+  easychat-rules.yaml: |
+    - rule: Terminal Shell Spawned inside EasyChat Containers
+      desc: Detects an interactive shell command execution inside a running EasyChat container.
+      condition: container.image.repository startswith "ghcr.io/easychat" and spawn_process and proc.name in (bash, sh, zsh)
+      output: "WARNING: Shell command '%proc.cmdline' executed inside container '%container.id' (image=%container.image.repository)"
+      priority: CRITICAL
+      tags: [container, shell, mitre_execution]
+
+    - rule: Write Attempt to Read-Only Directory
+      desc: Detects writes below root folders which should be locked down.
+      condition: container.image.repository startswith "ghcr.io/easychat" and open_write and not fd.directory in (/tmp, /var/tmp)
+      output: "CRITICAL: Suspicious write attempt on '%fd.name' by process '%proc.name' inside read-only container '%container.id'"
+      priority: HIGH
+      tags: [filesystem, tamper, mitre_defense_evasion]
+
+    - rule: Suspect Process Namespace Escape
+      desc: Detects system call attempts indicating container namespace escapes.
+      condition: container.image.repository startswith "ghcr.io/easychat" and (evt.type = setns or evt.type = unshare)
+      output: "CRITICAL: Suspect syscall '%evt.type' executed inside container '%container.id' (process=%proc.name)"
+      priority: EMERGENCY
+      tags: [syscall, escape, privilege]

@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco-response-engine-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: falco-responder-role
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: falco-responder-rb
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: falco-response-engine-sa
+    namespace: default
+roleRef:
+  kind: Role
+  name: falco-responder-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco-response-engine
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco-response-engine
+  template:
+    metadata:
+      labels:
+        app: falco-response-engine
+    spec:
+      serviceAccountName: falco-response-engine-sa
+      containers:
+        - name: responder
+          image: bitnami/kubectl:1.29
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Starting Falco Automated Response Engine daemon..."
+              
+              # Watch for pods containing suspicious process annotations or runtime alerts
+              # This script simulates a daemon listening to the Falco HTTP event forwarder
+              # When Falco alerts, the pod metadata is updated with quarantine/kill labels.
+              
+              kubectl get pods -w --output-watch-events | while read -r event; do
+                # Extract event type and pod name
+                EVENT_TYPE=$(echo "$event" | awk '{print $1}')
+                POD_NAME=$(echo "$event" | awk '{print $2}')
+                
+                if [ "$EVENT_TYPE" = "MODIFIED" ] || [ "$EVENT_TYPE" = "ADDED" ]; then
+                  # Check if the pod has been labeled with quarantine/tamper flags
+                  IS_COMPROMISED=$(kubectl get pod "$POD_NAME" -o jsonpath='{.metadata.labels.tamper}' 2>/dev/null || echo "false")
+                  
+                  if [ "$IS_COMPROMISED" = "true" ]; then
+                    echo "WARNING: Compromised Pod detected: $POD_NAME. Initiating mitigation playbook..."
+                    
+                    # Action 1: Isolate pod (apply NetworkPolicy selector label to lock down egress)
+                    kubectl label pod "$POD_NAME" quarantine=true --overwrite
+                    echo "Action completed: Pod $POD_NAME has been quarantined in isolation network."
+                    
+                    # Action 2: Terminate/kill process context by deleting the container pod
+                    kubectl delete pod "$POD_NAME" --grace-period=0 --force
+                    echo "Action completed: Compromised Pod $POD_NAME process killed."
+                  fi
+                fi
+              done

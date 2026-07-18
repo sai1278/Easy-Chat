@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: easychat-config
+  namespace: default
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  KAFKA_BROKERS: "kafka-service.default.svc.cluster.local:9092"
+  REDIS_ADDR: "redis-service.default.svc.cluster.local:6379"
+  DATABASE_HOST: "postgres-service.default.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "easychat"
+  CLAMAV_ADDRESS: "clamav-service.default.svc.cluster.local:3310"
+  S3_BUCKET: "easychat-media-production"
+  S3_ENDPOINT: "http://minio-service.default.svc.cluster.local:9000"
+  AWS_REGION: "us-east-1"
+  CDN_URL: "https://cdn.easychat.local"

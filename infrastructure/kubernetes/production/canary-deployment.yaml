@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service-canary
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-service-canary
+  template:
+    metadata:
+      labels:
+        app: auth-service-canary
+    spec:
+      containers:
+        - name: auth-canary
+          image: easychat/auth:v1.1.0-canary # New release version
+          ports:
+            - containerPort: 8081
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          readinessProbe:
+            tcpSocket:
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: easychat-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: easychat-secrets
+                  key: database-password
+          volumeMounts:
+            - name: rsa-secrets
+              mountPath: "/var/run/secrets/nearby.com"
+              readOnly: true
+      volumes:
+        - name: rsa-secrets
+          secret:
+            secretName: easychat-secrets
+            items:
+              - key: rsa-private-key
+                path: rsa-private.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service-canary
+  namespace: default
+spec:
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+  selector:
+    app: auth-service-canary
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-service-canary-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Canary configuration triggers NGINX to route a percentage of traffic
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10" # 10% traffic routing weight
+spec:
+  tls:
+    - hosts:
+        - easychat.local
+      secretName: easychat-tls-cert
+  rules:
+    - host: easychat.local
+      http:
+        paths:
+          - path: /api/v1/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service-canary
+                port:
+                  number: 8081

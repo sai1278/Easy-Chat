@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+service NearbyService {
+  rpc GetNearbyUsers (GetNearbyUsersRequest) returns (GetNearbyUsersResponse);
+}
+
+message GetNearbyUsersRequest {
+  string user_id = 1;
+  string h3_index = 2;
+  int32 radius_meters = 3;
+}
+
+message GetNearbyUsersResponse {
+  repeated NearbyUser users = 1;
+}
+
+message NearbyUser {
+  string user_id = 1;
+  string pseudonym = 2;
+  int32 avatar_id = 3;
+  string distance_bucket = 4; // e.g. "within 100m", "within 200m"
+}

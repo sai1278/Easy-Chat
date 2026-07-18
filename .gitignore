@@ -1,0 +1,68 @@
+# Production .gitignore for Easy Chat Monorepo
+
+# Flutter & Dart
+apps/frontend/.dart_tool/
+apps/frontend/.flutter-plugins
+apps/frontend/.flutter-plugins-dependencies
+apps/frontend/.pub-cache/
+apps/frontend/.pub/
+apps/frontend/build/
+apps/frontend/ios/Pods/
+apps/frontend/ios/.symlinks/
+apps/frontend/android/.gradle/
+apps/frontend/android/app/build/
+apps/frontend/android/captures/
+apps/frontend/lib/generated_plugin_registrant.dart
+
+# Go & Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.jks
+*.keystore
+*.p12
+
+# Local Development Scripts & Temporary Artifacts
+probe_*.ps1
+pg_reload.ps1
+run_backend.ps1
+setup_*.ps1
+setup_*.sql
+setup_*.py
+setup_*.sh
+e2e_validation.ps1
+verify.go
+screen_*.png
+uidump_*.xml
+tmp/
+logs/
+coverage/
+
+# Database Data Directories
+postgres_data/
+redis_data/
+kafka_data/

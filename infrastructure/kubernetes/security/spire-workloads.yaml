@@ -1,0 +1,95 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: gateway-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/gateway-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:gateway-service-account"
+    - "k8s:pod-label:app:gateway-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: auth-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/auth-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:auth-service-account"
+    - "k8s:pod-label:app:auth-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: chat-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/chat-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:chat-service-account"
+    - "k8s:pod-label:app:chat-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: nearby-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/nearby-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:nearby-service-account"
+    - "k8s:pod-label:app:nearby-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: presence-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/presence-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:presence-service-account"
+    - "k8s:pod-label:app:presence-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: user-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/user-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:user-service-account"
+    - "k8s:pod-label:app:user-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: media-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/media-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:media-service-account"
+    - "k8s:pod-label:app:media-service"
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSpireEntry
+metadata:
+  name: notification-spire-entry
+spec:
+  spiffeId: spiffe://cluster.local/ns/default/sa/notification-service-account
+  parentId: spiffe://cluster.local/ns/spire/sa/spire-agent
+  selectors:
+    - "k8s:ns:default"
+    - "k8s:sa:notification-service-account"
+    - "k8s:pod-label:app:notification-service"

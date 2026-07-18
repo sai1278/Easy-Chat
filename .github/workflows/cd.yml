@@ -1,0 +1,212 @@
+name: Continuous Delivery
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: cd-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push-images:
+    name: Build & Sign Microservices
+    strategy:
+      matrix:
+        service: [gateway, auth, chat, nearby, presence, user, media, notification]
+    uses: ./.github/workflows/reusable-docker.yml
+    with:
+      service: ${{ matrix.service }}
+      image_tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  deploy-development:
+    name: Promote to Dev
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    environment: development
+    concurrency: deploy-dev
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy to Dev Cluster
+        run: |
+          echo "Deploying immutable image digests to Development environment..."
+          # Deploying with Helm referencing the release tag
+          helm upgrade --install easychat-dev infrastructure/helm/easychat \
+            --namespace development --create-namespace \
+            --set global.imageTag=${{ github.ref_name }} \
+            --set canary.enabled=false
+
+      - name: Send Slack Notification
+        if: always()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"[DEV] Deployment of version ${{ github.ref_name }} completed. Status: ${{ job.status }}."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  deploy-qa:
+    name: Promote to QA
+    runs-on: ubuntu-latest
+    needs: deploy-development
+    environment: qa
+    concurrency: deploy-qa
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy to QA Cluster
+        run: |
+          echo "Deploying immutable image digests to QA environment..."
+          helm upgrade --install easychat-qa infrastructure/helm/easychat \
+            --namespace qa --create-namespace \
+            --set global.imageTag=${{ github.ref_name }} \
+            --set canary.enabled=false
+
+      - name: Send Slack Notification
+        if: always()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"[QA] Deployment of version ${{ github.ref_name }} completed. Status: ${{ job.status }}."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  deploy-staging:
+    name: Promote to Staging (Manual Approval Gate)
+    runs-on: ubuntu-latest
+    needs: deploy-qa
+    environment: staging
+    concurrency: deploy-staging
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy to Staging (Blue/Green Setup)
+        run: |
+          echo "Deploying to Staging using parallel Blue/Green templates..."
+          # Deploy Standby (Green) environment
+          helm upgrade --install easychat-staging-green infrastructure/helm/easychat \
+            --namespace staging --create-namespace \
+            --set global.imageTag=${{ github.ref_name }} \
+            --set bluegreen.color=green
+
+      - name: Execute Staging Smoke Tests
+        run: |
+          echo "Running post-deployment smoke tests on green ingress endpoint..."
+          # Query green health check endpoint to verify pod stability
+          curl --fail -s http://easychat.staging.local/api/v1/auth/health || exit 1
+
+      - name: Swap Staging Traffic (Green is Active)
+        run: |
+          echo "Promoting Green to active traffic..."
+          # Ingress routing selector updated to point green
+          helm upgrade --install easychat-staging infrastructure/helm/easychat \
+            --namespace staging \
+            --set bluegreen.activeColor=green
+
+      - name: Send Slack Notification
+        if: always()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"[STAGING] Blue/Green deployment of version ${{ github.ref_name }} promoted. Status: ${{ job.status }}."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  deploy-production:
+    name: Promote to Production (Manual Approval Gate)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    concurrency: deploy-production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      # 1. Package and Lint Helm Chart
+      - name: Package Helm Chart
+        run: |
+          helm lint infrastructure/helm/easychat
+          helm package infrastructure/helm/easychat --destination .deploy-charts
+
+      # 2. Deploy Canary Release (10% traffic weight)
+      - name: Deploy Canary Release
+        id: deploy-canary
+        run: |
+          helm upgrade --install easychat-production infrastructure/helm/easychat \
+            --namespace production --create-namespace \
+            --set global.imageTag=${{ github.ref_name }} \
+            --set canary.enabled=true \
+            --set canary.weight=10
+
+      # 3. Verify metrics and trigger enhanced rollback on violation
+      - name: Verify Metrics and Auto-Rollback
+        id: metric-check
+        run: |
+          PROMETHEUS_URL="http://prometheus-service.default.svc.cluster.local:9090"
+          echo "Starting production canary metric verification polling..."
+          
+          # Poll error rates for 5 minutes
+          for i in {1..5}; do
+            sleep 30
+            QUERY="sum(rate(http_request_duration_seconds_count{status=~'5..'}[2m]))/sum(rate(http_request_duration_seconds_count[2m]))"
+            RESPONSE=$(curl -s --data-urlencode "query=$QUERY" "$PROMETHEUS_URL/api/v1/query" || echo "")
+            ERROR_RATE=$(echo "$RESPONSE" | grep -oP '"value":\[.*?,.*?"\K[0-9.]+(?="\])' || echo "")
+            
+            if [ -n "$ERROR_RATE" ] && (( $(echo "$ERROR_RATE > 0.01" | bc -l 2>/dev/null || echo 0) )); then
+              echo "SLA VIOLATION: HTTP Error rate is $ERROR_RATE. Aborting rollout, starting automatic rollback..."
+              helm rollback easychat-production --namespace production
+              
+              # Generate SRE Incident Report
+              echo "==========================================" > incident-report.txt
+              echo "SRE CANARY ROLLBACK REPORT" >> incident-report.txt
+              echo "Time: $(date -u)" >> incident-report.txt
+              echo "Failed Version: ${{ github.ref_name }}" >> incident-report.txt
+              echo "Observed Error Rate: $ERROR_RATE" >> incident-report.txt
+              echo "Status: AUTO-ROLLED BACK SUCCESSFUL" >> incident-report.txt
+              echo "==========================================" >> incident-report.txt
+              
+              exit 1
+            fi
+            echo "Iteration $i: Health check parameters clean."
+          done
+          echo "Canary verification passed. Promoting release to 100% active traffic..."
+
+      # 4. Promote Canary to 100% Production Traffic
+      - name: Promote Canary to 100%
+        if: success()
+        run: |
+          helm upgrade --install easychat-production infrastructure/helm/easychat \
+            --namespace production \
+            --set global.imageTag=${{ github.ref_name }} \
+            --set canary.enabled=false
+
+      # 5. Upload rollback logs if validation failed
+      - name: Upload Incident Report Artifact
+        if: failure() && steps.metric-check.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-incident-report
+          path: incident-report.txt
+
+      - name: Send Slack Notification
+        if: always()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"[PRODUCTION] Release ${{ github.ref_name }} completed. Status: ${{ job.status }}."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

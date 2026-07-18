@@ -1,0 +1,246 @@
+## ─────────────────────────────────────────────────────────────────────────────
+## Compliance Prometheus Alert Rules
+## Monitors GDPR obligations: DSR deadlines, retention execution, consent health,
+## encryption certificate expiry, and audit log integrity.
+## ─────────────────────────────────────────────────────────────────────────────
+
+groups:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GDPR Art.12 — Data Subject Request deadline enforcement
+  # GDPR requires response within 30 days.
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gdpr.dsr.deadlines
+    rules:
+
+      # DSR approaching 30-day breach (72 hours remaining)
+      - alert: GDPRDataSubjectRequestDeadlineApproaching
+        expr: |
+          gdpr_dsr_deadline_remaining_hours{status="pending"} < 72
+        for: 5m
+        labels:
+          severity: critical
+          team: compliance
+          gdpr_article: "Art.12"
+        annotations:
+          summary: "GDPR BREACH RISK: DSR {{ $labels.dsr_id }} deadline in {{ $value }}h"
+          description: |
+            Data subject request {{ $labels.request_type }} for user {{ $labels.user_id }}
+            has {{ $value }} hours remaining before the GDPR 30-day deadline.
+            Immediate action required to avoid regulatory breach.
+          runbook: "https://wiki.internal/compliance/dsr-emergency-response"
+
+      # DSR has breached the 30-day deadline
+      - alert: GDPRDataSubjectRequestDeadlineBreached
+        expr: |
+          gdpr_dsr_deadline_remaining_hours{status="pending"} <= 0
+        for: 1m
+        labels:
+          severity: critical
+          team: compliance
+          action: immediate_escalation
+          gdpr_article: "Art.12"
+        annotations:
+          summary: "🚨 GDPR BREACH: DSR {{ $labels.dsr_id }} 30-day deadline EXCEEDED"
+          description: |
+            GDPR Art.12 violation: data subject request is overdue.
+            DPO must be notified immediately. Regulatory fine risk active.
+          runbook: "https://wiki.internal/compliance/dsr-breach-escalation"
+
+      # High volume of pending DSRs (capacity signal)
+      - alert: GDPRDSRBacklogHigh
+        expr: gdpr_dsr_pending_total > 50
+        for: 30m
+        labels:
+          severity: warning
+          team: compliance
+        annotations:
+          summary: "{{ $value }} pending data subject requests — compliance team capacity alert"
+          description: "DSR backlog exceeds 50. Review staffing to ensure all requests met within 30-day window."
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GDPR Art.5 — Data Retention enforcement health
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gdpr.retention
+    rules:
+
+      # Retention CronJob failed to run (data stored beyond retention period)
+      - alert: GDPRRetentionJobFailed
+        expr: |
+          kube_job_status_failed{job_name=~"data-retention-enforcer.*"} > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: compliance
+          gdpr_article: "Art.5(1)(e)"
+        annotations:
+          summary: "GDPR: Data retention enforcement JOB FAILED"
+          description: |
+            Data retention CronJob failed. Data may be stored beyond its GDPR retention period.
+            Immediate investigation required to avoid Art.5(1)(e) violation.
+          runbook: "https://wiki.internal/compliance/retention-job-failure"
+
+      # Retention job has not run in > 26 hours (missed schedule)
+      - alert: GDPRRetentionJobMissedSchedule
+        expr: |
+          (time() - gdpr_retention_last_run_timestamp_seconds) > 93600
+        for: 10m
+        labels:
+          severity: critical
+          team: compliance
+          gdpr_article: "Art.5(1)(e)"
+        annotations:
+          summary: "GDPR: Retention CronJob has NOT run in > 26 hours"
+          description: |
+            Last successful retention run was {{ $value | humanizeDuration }} ago.
+            Data may be accumulating beyond legal retention limits.
+
+      # Data accumulation spike (possible retention failure)
+      - alert: GDPRDataAccumulationSpike
+        expr: |
+          rate(gdpr_total_records_processed_total[24h]) < 1
+          AND on() (time() - gdpr_retention_last_run_timestamp_seconds) > 43200
+        for: 30m
+        labels:
+          severity: warning
+          team: compliance
+        annotations:
+          summary: "GDPR: No retention activity in 12 hours — verify data is not accumulating"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # GDPR Art.7 — Consent Management health
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gdpr.consent
+    rules:
+
+      # High consent withdrawal rate — possible UI/UX issue or user distrust signal
+      - alert: GDPRConsentWithdrawalSpike
+        expr: |
+          rate(gdpr_consent_withdrawals_total[1h]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          team: compliance
+          gdpr_article: "Art.7(3)"
+        annotations:
+          summary: "High consent withdrawal rate: {{ $value | humanize }}/hour"
+          description: |
+            Unusual spike in consent withdrawals. Possible UI change impact, privacy concern,
+            or data breach awareness. Review recent changes and notify DPO.
+
+      # Processing occurring without consent (should never happen)
+      - alert: GDPRProcessingWithoutConsent
+        expr: |
+          gdpr_processing_without_consent_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: compliance
+          gdpr_article: "Art.6"
+        annotations:
+          summary: "🚨 GDPR VIOLATION: Processing detected without valid consent"
+          description: |
+            {{ $value }} processing operations detected without valid lawful basis.
+            GDPR Art.6 violation. DPO must be notified immediately.
+          runbook: "https://wiki.internal/compliance/processing-without-consent"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Encryption & Certificate Compliance
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: encryption.compliance
+    rules:
+
+      # TLS certificate expiry warning (30 days)
+      - alert: TLSCertificateExpiringWarning
+        expr: |
+          (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 30
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "TLS cert {{ $labels.name }} expires in {{ $value | humanize }} days"
+          description: "Certificate will expire within 30 days. cert-manager should auto-renew. Verify renewal is working."
+          runbook: "https://wiki.internal/runbooks/tls-cert-expiry"
+
+      # TLS certificate expiry critical (7 days)
+      - alert: TLSCertificateExpiryCritical
+        expr: |
+          (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 7
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "🚨 TLS cert {{ $labels.name }} expires in {{ $value | humanize }} DAYS — URGENT"
+          description: "Certificate expiry imminent. Manual intervention required if cert-manager has failed."
+          runbook: "https://wiki.internal/runbooks/tls-cert-emergency"
+
+      # KMS key rotation overdue
+      - alert: KMSKeyRotationOverdue
+        expr: |
+          (time() - gdpr_kms_key_last_rotation_timestamp_seconds) / 86400 > 95
+        for: 10m
+        labels:
+          severity: critical
+          team: compliance
+        annotations:
+          summary: "KMS encryption key {{ $labels.key_name }} rotation overdue ({{ $value | humanize }} days)"
+          description: "90-day key rotation policy exceeded. Rotate key immediately to maintain encryption compliance."
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Audit Log Integrity
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: audit.integrity
+    rules:
+
+      # Audit log integrity hash mismatch (tampering detection)
+      - alert: AuditLogTamperingDetected
+        expr: |
+          gdpr_audit_integrity_failures_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+          action: immediate_investigation
+        annotations:
+          summary: "🚨 SECURITY: Audit log integrity check FAILED — possible tampering"
+          description: |
+            {{ $value }} audit records failed integrity hash verification.
+            This indicates possible tampering with the compliance audit trail.
+            Security incident must be declared immediately.
+          runbook: "https://wiki.internal/security/audit-tampering"
+
+      # Audit log gap detection (no events for > 5 minutes during business hours)
+      - alert: AuditLogGapDetected
+        expr: |
+          rate(gdpr_audit_events_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          team: compliance
+        annotations:
+          summary: "No audit events recorded in 10 minutes — audit pipeline may be down"
+          description: "Audit log gap could indicate a compliance recording failure. Verify the compliance service is healthy."
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Data Residency Compliance
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gdpr.data_residency
+    rules:
+
+      # Cross-region data access detected (EU data accessed from non-EU node)
+      - alert: GDPRCrossRegionDataAccessDetected
+        expr: |
+          gdpr_cross_region_access_total{user_region="eu-west1", access_region!="eu-west1"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: compliance
+          gdpr_article: "Art.44"
+        annotations:
+          summary: "🚨 GDPR Art.44: EU resident data accessed from {{ $labels.access_region }}"
+          description: |
+            Cross-border data transfer detected without SCCs or adequacy decision.
+            EU resident user data is being processed outside the EU.
+            DPO must be notified immediately — Art.44 violation risk.
+          runbook: "https://wiki.internal/compliance/cross-border-transfer"

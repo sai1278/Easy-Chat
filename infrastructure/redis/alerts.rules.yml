@@ -1,0 +1,66 @@
+# alerts.rules.yml
+# Prometheus Alerting Rules for Nearby Connect Redis Cluster
+# Triggers alerts based on metrics scraped from redis_exporter instances.
+
+groups:
+  - name: redis_cluster_alerts
+    rules:
+      # 1. NODE DOWN ALERT
+      - alert: RedisNodeDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis node down (Instance: {{ $labels.instance }})"
+          description: "A Redis Cluster node has been unresponsive for more than 1 minute. Active failover procedures should be engaged."
+
+      # 2. OUT OF MEMORY WARNING
+      - alert: RedisMemoryHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis Memory Utilization (Instance: {{ $labels.instance }})"
+          description: "Redis memory utilization has exceeded 85% of node maxmemory for over 5 minutes. Active memory profile: {{ $value | printf \"%.2f\" }}%."
+
+      # 3. CRITICAL OUT OF MEMORY
+      - alert: RedisMemoryCritical
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical Redis Memory Limit (Instance: {{ $labels.instance }})"
+          description: "Redis memory utilization has breached 95% of node capacity. Key eviction is active, threat of OOM termination is imminent."
+
+      # 4. REPLICATION LAG
+      - alert: RedisReplicationLag
+        expr: redis_connected_slaves > 0 and (redis_master_repl_offset - redis_replica_repl_offset) > 10485760 # 10MB sync gap
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis Replication Lag High (Instance: {{ $labels.instance }})"
+          description: "Replica replication sync lag has exceeded 10MB for more than 3 minutes. Indicates network partition or write load bottleneck."
+
+      # 5. LATENCY BREACH
+      - alert: RedisHighLatency
+        expr: rate(redis_commands_duration_seconds_total[5m]) > 0.010 # P99 latency exceeding 10ms
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis Command Latency Warning (Instance: {{ $labels.instance }})"
+          description: "Average latency of Redis commands has exceeded 10ms for more than 2 minutes. Slow query logs should be audited."
+
+      # 6. CLUSTER STATUS FAILURE
+      - alert: RedisClusterFail
+        expr: redis_cluster_state{state="fail"} == 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis Cluster Failure (Instance: {{ $labels.instance }})"
+          description: "The Redis Cluster has reported a FAILED state. Hash slot allocations are corrupted or multiple primary nodes are offline."

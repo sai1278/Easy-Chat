@@ -1,0 +1,70 @@
+# pod-security-standards.yaml
+# Namespace definitions enforcing Pod Security Admission (PSA) restricted profile,
+# alongside container securityContext blueprints.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway
+  labels:
+    kubernetes.io/metadata.name: gateway
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+  labels:
+    kubernetes.io/metadata.name: auth
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redis
+  labels:
+    kubernetes.io/metadata.name: redis
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+
+---
+# 2. TEMPLATE POD SECURITY CONTEXT SPECIFICATION (RESTRICTED STANDARD)
+# Every Deployment/StatefulSet template spec in the cluster must define:
+#
+# spec:
+#   securityContext:
+#     runAsNonRoot: true
+#     runAsUser: 65532
+#     runAsGroup: 65532
+#     fsGroup: 65532
+#     seccompProfile:
+#       type: RuntimeDefault
+#   containers:
+#     - name: app-container
+#       image: gcr.io/distroless/static-debian12
+#       securityContext:
+#         allowPrivilegeEscalation: false
+#         readOnlyRootFilesystem: true
+#         privileged: false
+#         runAsNonRoot: true
+#         capabilities:
+#           drop:
+#             - ALL
+#       # For transient writable paths (e.g. logs/caches), use tmpfs volumes:
+#       volumeMounts:
+#         - mountPath: /tmp
+#           name: ephemeral-tmp
+#   volumes:
+#     - name: ephemeral-tmp
+#       emptyDir:
+#         medium: Memory
+#         sizeLimit: 64Mi

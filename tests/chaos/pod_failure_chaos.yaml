@@ -1,0 +1,33 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: chat-pod-failure
+  namespace: default
+spec:
+  action: pod-failure
+  mode: fixed
+  value: '1'
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: chat-service
+  duration: '2m'
+  scheduler:
+    cron: '*/5 * * * *'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: gateway-pod-kill
+  namespace: default
+spec:
+  action: pod-kill
+  mode: random
+  value: '1'
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: gateway-service
+  duration: '1m'

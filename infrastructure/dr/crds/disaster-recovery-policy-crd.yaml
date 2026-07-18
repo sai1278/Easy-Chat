@@ -1,0 +1,32 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: disasterrecoverypolicies.dr.easychat.local
+spec:
+  group: dr.easychat.local
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                primaryRegion:
+                  type: string
+                secondaryRegion:
+                  type: string
+                activeRegion:
+                  type: string
+                failureThreshold:
+                  type: integer
+  scope: Namespaced
+  names:
+    plural: disasterrecoverypolicies
+    singular: disasterrecoverypolicy
+    kind: DisasterRecoveryPolicy
+    shortNames:
+      - drpol

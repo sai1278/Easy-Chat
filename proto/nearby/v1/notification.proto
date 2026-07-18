@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package nearby.v1;
+
+option go_package = "nearby/backend/internal/gen/v1;genv1";
+
+service NotificationService {
+  rpc RegisterDevice (RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  rpc SendPushNotification (SendPushNotificationRequest) returns (SendPushNotificationResponse);
+}
+
+message RegisterDeviceRequest {
+  string user_id = 1;
+  string push_token = 2;
+  string platform = 3; // IOS or ANDROID
+}
+
+message RegisterDeviceResponse {
+  bool success = 1;
+}
+
+message SendPushNotificationRequest {
+  string user_id = 1;
+  string title = 2;
+  string body = 3;
+  map<string, string> payload = 4; // Extensible custom JSON data properties
+}
+
+message SendPushNotificationResponse {
+  bool success = 1;
+  string message_id = 2;
+}

@@ -1,0 +1,32 @@
+{{- if .Values.bluegreen }}
+{{- range $name, $svc := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc.name }}-{{ $.Values.bluegreen.color | default "blue" }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: {{ $svc.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $svc.name }}
+      color: {{ $.Values.bluegreen.color | default "blue" }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc.name }}
+        color: {{ $.Values.bluegreen.color | default "blue" }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.global.imageRegistry }}/{{ $name }}:{{ $.Values.global.imageTag }}"
+          ports:
+            - containerPort: {{ $svc.port }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: easychat-config
+---
+{{- end }}
+{{- end }}

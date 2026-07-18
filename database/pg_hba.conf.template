@@ -1,0 +1,24 @@
+# pg_hba.conf.template
+# Client Host Authentication Configuration
+# Restricts connections based on Least Privilege and requires SSL/TLS encryption for app networks.
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# 1. Local Superuser Connections (Unix Sockets)
+local   all             postgres                                peer
+
+# 2. Local Replication Checks
+local   replication     all                                     peer
+
+# 3. Application Services Connection (Internal Network Boundaries)
+# Restricts database entry exclusively to SSL-encrypted TCP routes
+hostssl nearby_connect  nearby_user     10.0.0.0/8              scram-sha-256
+hostssl nearby_connect  nearby_user     172.16.0.0/12           scram-sha-256
+hostssl nearby_connect  nearby_user     192.168.0.0/16          scram-sha-256
+
+# 4. Local loopback overrides for verification/admin commands
+hostssl all             all             127.0.0.1/32            scram-sha-256
+hostssl all             all             ::1/128                 scram-sha-256
+
+# 5. Deny all other unencrypted connection requests explicitly
+host    all             all             all                     reject

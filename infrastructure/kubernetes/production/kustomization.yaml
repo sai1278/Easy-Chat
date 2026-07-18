@@ -1,0 +1,9 @@
+resources:
+  - configmaps.yaml
+  - secrets.yaml
+  - deployments.yaml
+  - services.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - canary-deployment.yaml

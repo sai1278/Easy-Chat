@@ -1,0 +1,39 @@
+name: Reusable Go CI
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go compiler version target'
+        required: false
+        type: string
+        default: '1.22.0'
+
+jobs:
+  validate-go:
+    name: Run Go Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+          cache-dependency-path: '**/go.sum'
+
+      - name: Sync Workspace
+        run: go work sync
+
+      - name: Run Gosec Static Scan
+        uses: securego/gosec@master
+        with:
+          args: ./apps/backend/...
+
+      - name: Execute Tests
+        run: go test -v -race -covermode=atomic ./apps/backend/...
+
+      - name: Run Contract Verification Tests
+        run: go test -v ./tests/contracts/...
