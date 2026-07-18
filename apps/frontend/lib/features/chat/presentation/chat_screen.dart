@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/database/entities/message_entity.dart';
 import 'chat_controller.dart';
 import 'chat_session_args.dart';
 
@@ -209,12 +208,12 @@ class _MessageBubble extends StatelessWidget {
   final bool isRead;
 
   const _MessageBubble({
-    Key? key,
+    super.key,
     required this.text,
     required this.createdAt,
     required this.isSelf,
     required this.isRead,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
