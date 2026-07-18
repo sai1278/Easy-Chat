@@ -4,12 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'environment.dart';
 
-class _CacheEntry {
+class CacheEntry {
   final dynamic data;
   final String etag;
   final DateTime timestamp;
 
-  _CacheEntry({
+  CacheEntry({
     required this.data,
     required this.etag,
     required this.timestamp,
@@ -19,12 +19,12 @@ class _CacheEntry {
 class HttpCache {
   final int maxEntries;
   final Duration ttl;
-  final Map<String, _CacheEntry> _cacheMap = {};
+  final Map<String, CacheEntry> _cacheMap = {};
   final List<String> _lruList = [];
 
   HttpCache({required this.maxEntries, required this.ttl});
 
-  _CacheEntry? get(String key) {
+  CacheEntry? get(String key) {
     final entry = _cacheMap[key];
     if (entry == null) return null;
 
@@ -52,7 +52,7 @@ class HttpCache {
       remove(oldestKey);
     }
 
-    _cacheMap[key] = _CacheEntry(
+    _cacheMap[key] = CacheEntry(
       data: data,
       etag: etag,
       timestamp: DateTime.now(),

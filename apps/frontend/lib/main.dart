@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -34,7 +35,8 @@ void main() async {
     try {
       final parts = jwtToken.split('.');
       if (parts.length == 3) {
-        final normalized = base64Url.normalize(parts[1]);
+        final payload = parts[1];
+        final normalized = payload.padRight(payload.length + ((4 - payload.length % 4) % 4), '=');
         final payloadMap = jsonDecode(utf8.decode(base64Url.decode(normalized))) as Map<String, dynamic>;
         final sub = payloadMap['sub'] as String?;
         if (sub != null && sub.isNotEmpty) {
