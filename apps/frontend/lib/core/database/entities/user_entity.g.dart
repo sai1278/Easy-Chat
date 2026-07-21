@@ -15,7 +15,7 @@ extension GetUserEntityCollection on Isar {
 
 const UserEntitySchema = CollectionSchema(
   name: r'UserEntity',
-  id: 965090076791382600,
+  id: 965090076791382528,
   properties: {
     r'avatarUrl': PropertySchema(
       id: 0,
@@ -55,7 +55,7 @@ const UserEntitySchema = CollectionSchema(
   idName: r'id',
   indexes: {
     r'userId': IndexSchema(
-      id: -2005826577402374815,
+      id: -2005826577402374912,
       name: r'userId',
       unique: true,
       replace: true,

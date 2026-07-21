@@ -15,7 +15,7 @@ extension GetMessageEntityCollection on Isar {
 
 const MessageEntitySchema = CollectionSchema(
   name: r'MessageEntity',
-  id: 2569526783852321106,
+  id: 2569526783852321280,
   properties: {
     r'createdAt': PropertySchema(
       id: 0,
@@ -55,7 +55,7 @@ const MessageEntitySchema = CollectionSchema(
   idName: r'id',
   indexes: {
     r'messageId': IndexSchema(
-      id: -635287409172016016,
+      id: -635287409172016000,
       name: r'messageId',
       unique: true,
       replace: true,
@@ -68,7 +68,7 @@ const MessageEntitySchema = CollectionSchema(
       ],
     ),
     r'roomId': IndexSchema(
-      id: -3609232324653216207,
+      id: -3609232324653216256,
       name: r'roomId',
       unique: false,
       replace: false,
@@ -81,7 +81,7 @@ const MessageEntitySchema = CollectionSchema(
       ],
     ),
     r'createdAt': IndexSchema(
-      id: -3433535483987302584,
+      id: -3433535483987302400,
       name: r'createdAt',
       unique: false,
       replace: false,
