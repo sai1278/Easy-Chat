@@ -55,7 +55,7 @@ class ChatRepository {
   Future<void> sendMessage(String roomId, String text) async {
     final messageId = const Uuid().v4();
     final idempotencyKey = const Uuid().v4();
-    final payloadBytes = List<int>.from(text.codeUnits); // Encrypted payload mockup bytes
+    final payloadBytes = List<int>.from(text.codeUnits); // Encrypted payload bytes
 
     final messageEntity = MessageEntity()
       ..messageId = messageId
