@@ -11,30 +11,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:nearby_frontend/main.dart';
+import 'package:nearby_frontend/core/network/websocket_client.dart';
+import 'package:nearby_frontend/core/database/entities/message_entity.dart';
 import 'package:nearby_frontend/features/chat/data/chat_repository.dart';
 import 'package:nearby_frontend/features/chat/presentation/chat_controller.dart';
 
 // Minimal fake WebSocketClient for testing
-class FakeWebSocketClient {
+class FakeWebSocketClient implements WebSocketClient {
   bool _isConnected = false;
   final StreamController<Map<String, dynamic>> _streamController =
       StreamController<Map<String, dynamic>>.broadcast();
 
+  @override
   Stream<Map<String, dynamic>> get stream => _streamController.stream;
+
+  @override
   bool get isConnected => _isConnected;
 
+  @override
   void connect(String url, {required String token}) {
     _isConnected = true;
   }
 
+  @override
   void send(Map<String, dynamic> packet) {
     // No-op for testing
   }
 
+  @override
   void setHeartbeatInterval(Duration interval) {
     // No-op for testing
   }
 
+  @override
   void close() {
     _isConnected = false;
     _streamController.close();
@@ -52,7 +61,7 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Stream<List<dynamic>> watchMessages(String roomId) {
+  Stream<List<MessageEntity>> watchMessages(String roomId) {
     return Stream.value([]);
   }
 
