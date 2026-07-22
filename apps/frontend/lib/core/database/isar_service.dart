@@ -10,6 +10,11 @@ class IsarService {
   IsarService._(this._isar);
 
   static Future<IsarService> init() async {
+    final existing = Isar.getInstance();
+    if (existing != null) {
+      return IsarService._(existing);
+    }
+
     final Isar isar;
     if (kIsWeb) {
       isar = await Isar.open(
