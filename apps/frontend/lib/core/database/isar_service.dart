@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'entities/message_entity.dart';
@@ -9,15 +10,26 @@ class IsarService {
   IsarService._(this._isar);
 
   static Future<IsarService> init() async {
-    // Locate the device documents directory for persistent storage
-    final dir = await getApplicationDocumentsDirectory();
-    final isar = await Isar.open(
-      [
-        MessageEntitySchema,
-        UserEntitySchema,
-      ],
-      directory: dir.path,
-    );
+    final Isar isar;
+    if (kIsWeb) {
+      isar = await Isar.open(
+        [
+          MessageEntitySchema,
+          UserEntitySchema,
+        ],
+        directory: '',
+      );
+    } else {
+      // Locate the device documents directory for persistent storage
+      final dir = await getApplicationDocumentsDirectory();
+      isar = await Isar.open(
+        [
+          MessageEntitySchema,
+          UserEntitySchema,
+        ],
+        directory: dir.path,
+      );
+    }
     return IsarService._(isar);
   }
 

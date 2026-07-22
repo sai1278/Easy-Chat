@@ -48,12 +48,14 @@ class BatteryOptimizer {
     _lastMovementTime = DateTime.now();
     _applyOptimizations();
     
-    // Listen to positions to gauge velocity/motion patterns
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: _getLocationSettings(LocationAccuracy.low, 50),
-    ).listen((position) {
-      _evaluateMovement(position);
-    });
+    // Listen to positions to gauge velocity/motion patterns on mobile/desktop platforms
+    if (!kIsWeb) {
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: _getLocationSettings(LocationAccuracy.low, 50),
+      ).listen((position) {
+        _evaluateMovement(position);
+      }, onError: (_) {});
+    }
   }
 
   void _evaluateMovement(Position position) {
@@ -110,6 +112,11 @@ class BatteryOptimizer {
   }
 
   void _applyOptimizations() {
+    if (kIsWeb) {
+      onLocationSettingsChanged(_getLocationSettings(LocationAccuracy.low, 100));
+      return;
+    }
+
     final now = DateTime.now();
     final isIdle = _currentState == ActivityState.stationary && 
         now.difference(_lastMovementTime) > const Duration(minutes: 15);
