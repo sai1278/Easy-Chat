@@ -38,3 +38,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+dependency_overrides:
+  reactive_ble_platform_interface: 5.4.1
+
