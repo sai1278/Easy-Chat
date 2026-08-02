@@ -237,7 +237,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentUserId = ref.watch(chatRepositoryProvider).currentUserId;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
       appBar: AppBar(
         title: GestureDetector(
           onTap: () => _showPeerProfileModal(context, chatState.isRecipientOnline),
@@ -491,6 +493,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }
