@@ -24,7 +24,7 @@ class NearbyScreen extends ConsumerStatefulWidget {
   ConsumerState<NearbyScreen> createState() => _NearbyScreenState();
 }
 
-class _NearbyScreenState extends ConsumerState<NearbyScreen> {
+class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerProviderStateMixin {
   StreamSubscription<Position>? _positionSub;
   Position? _currentPosition;
   bool _isInitializing = true;
@@ -32,10 +32,16 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   String _locationErrorMessage = '';
 
   Timer? _heartbeatTimer;
+  late AnimationController _radarAnimationController;
 
   @override
   void initState() {
     super.initState();
+    _radarAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
     _initializeLocationAndDiscovery();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatRepositoryProvider).ensureConnected();
@@ -226,6 +232,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   void dispose() {
     _positionSub?.cancel();
     _heartbeatTimer?.cancel();
+    _radarAnimationController.dispose();
     super.dispose();
   }
 
@@ -255,91 +262,20 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       ),
       body: Column(
         children: [
-          // Proximity Sensor Duty-Cycle Power Optimization Registry Panel
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: colorScheme.surfaceContainerLow,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.bolt_rounded, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Sensor & Battery Engine',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                      ),
-                      const Spacer(),
-                      Chip(
-                        avatar: Icon(
-                          activity == ActivityState.moving ? Icons.directions_walk : Icons.accessibility_new,
-                          size: 16,
-                          color: colorScheme.onSecondaryContainer,
-                        ),
-                        label: Text(
-                          activity == ActivityState.moving ? 'Moving (5m filter)' : 'Stationary (2m filter)',
-                          style: TextStyle(fontSize: 11, color: colorScheme.onSecondaryContainer),
-                        ),
-                        backgroundColor: colorScheme.secondaryContainer,
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.gps_fixed, size: 14, color: colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          gpsInfo,
-                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.bluetooth_searching, size: 14, color: colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          bleInfo,
-                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_currentPosition != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'My GPS Coordinates: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}',
-                      style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant.withOpacity(0.8)),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          // Premium Radar Pulse & Sensor Panel Banner
+          _RadarHeaderBanner(
+            animationController: _radarAnimationController,
+            activity: activity,
+            gpsInfo: gpsInfo,
+            bleInfo: bleInfo,
+            currentPosition: _currentPosition,
           ),
 
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
-                Icon(Icons.radar_rounded, color: colorScheme.secondary, size: 20),
+                Icon(Icons.radar_rounded, color: colorScheme.primary, size: 22),
                 const SizedBox(width: 8),
                 Text(
                   'Discovered Nearby Peers',
@@ -348,9 +284,20 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                       ),
                 ),
                 const Spacer(),
-                Text(
-                  '${users.length} active',
-                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${users.length} active nearby',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -358,205 +305,520 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
 
           Expanded(
             child: _isInitializing
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: colorScheme.primary),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Scanning nearby spatial region...',
-                          style: TextStyle(color: colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  )
+                ? _LoadingRadarSkeleton(animationController: _radarAnimationController)
                 : _locationUnavailable
-                    ? Center(
-                        child: Card(
-                          margin: const EdgeInsets.all(24),
-                          color: colorScheme.errorContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.location_off_rounded, size: 48, color: colorScheme.onErrorContainer),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Location Access Disabled',
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onErrorContainer,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _locationErrorMessage.isNotEmpty
-                                      ? _locationErrorMessage
-                                      : 'Unable to acquire GPS signal. Please enable high accuracy location services.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: colorScheme.onErrorContainer.withOpacity(0.9)),
-                                ),
-                                const SizedBox(height: 16),
-                                FilledButton.icon(
-                                  onPressed: () => _initializeLocationAndDiscovery(),
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Grant & Retry GPS'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    ? _LocationDisabledCard(
+                        errorMessage: _locationErrorMessage,
+                        onRetry: _initializeLocationAndDiscovery,
                       )
                     : users.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.secondaryContainer.withOpacity(0.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(Icons.sensors_off_rounded, size: 48, color: colorScheme.secondary),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Text(
-                                    'No Nearby Devices Discovered',
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Ensure another device is online and within 5km distance.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  FilledButton.icon(
-                                    onPressed: () => _fetchNearbyUsers(),
-                                    icon: const Icon(Icons.radar_rounded),
-                                    label: const Text('Scan Spatial Area'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
+                        ? _EmptyNearbyState(onScan: _fetchNearbyUsers)
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             itemCount: users.length,
                             itemBuilder: (context, index) {
                               final user = users[index];
                               final unreadCounts = ref.watch(unreadCountsProvider);
                               final unreadCount = unreadCounts[user.userId] ?? 0;
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                color: colorScheme.surfaceContainerLow,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Row(
-                                    children: [
-                                      Stack(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 26,
-                                            backgroundColor: colorScheme.primaryContainer,
-                                            child: Text(
-                                              user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: colorScheme.onPrimaryContainer,
-                                              ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            right: 0,
-                                            bottom: 0,
-                                            child: Container(
-                                              width: 14,
-                                              height: 14,
-                                              decoration: BoxDecoration(
-                                                color: user.isOnline ? Colors.green : Colors.grey,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(color: colorScheme.surface, width: 2),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              user.username,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: colorScheme.secondaryContainer,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Text(
-                                                    '${user.distanceMeters.toStringAsFixed(1)}m away',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: colorScheme.onSecondaryContainer,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  user.isOnline ? 'Active now' : 'Offline',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: colorScheme.onSurfaceVariant,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (unreadCount > 0)
-                                        Badge(
-                                          label: Text('$unreadCount'),
-                                          backgroundColor: colorScheme.error,
-                                        ),
-                                      const SizedBox(width: 8),
-                                      FilledButton.tonalIcon(
-                                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                                        label: const Text('Chat'),
-                                        onPressed: () => _startChatWithUser(user),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              return _NearbyUserCard(
+                                key: ValueKey(user.userId),
+                                user: user,
+                                unreadCount: unreadCount,
+                                onTapChat: () => _startChatWithUser(user),
                               );
                             },
                           ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RadarHeaderBanner extends StatelessWidget {
+  final AnimationController animationController;
+  final ActivityState activity;
+  final String gpsInfo;
+  final String bleInfo;
+  final Position? currentPosition;
+
+  const _RadarHeaderBanner({
+    required this.animationController,
+    required this.activity,
+    required this.gpsInfo,
+    required this.bleInfo,
+    this.currentPosition,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: colorScheme.surfaceContainerLow,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            // Radar Animation Ripple Circle
+            SizedBox(
+              width: 56,
+              height: 56,
+              child: AnimatedBuilder(
+                animation: animationController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _RadarRipplePainter(
+                      progress: animationController.value,
+                      color: colorScheme.primary,
+                    ),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.wifi_tethering_rounded, color: colorScheme.onPrimaryContainer, size: 24),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Sensor Power Engine',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          activity == ActivityState.moving ? 'Moving (5m)' : 'Stationary (2m)',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorScheme.onSecondaryContainer),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.gps_fixed_rounded, size: 12, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          gpsInfo,
+                          style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.bluetooth_searching_rounded, size: 12, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          bleInfo,
+                          style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RadarRipplePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _RadarRipplePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width / 2;
+
+    for (int i = 0; i < 2; i++) {
+      final value = (progress + i * 0.5) % 1.0;
+      final radius = maxRadius * value;
+      final opacity = (1.0 - value).clamp(0.0, 1.0);
+
+      final paint = Paint()
+        ..color = color.withOpacity(opacity * 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+
+      canvas.drawCircle(center, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadarRipplePainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+class _NearbyUserCard extends StatelessWidget {
+  final ProximityUser user;
+  final int unreadCount;
+  final VoidCallback onTapChat;
+
+  const _NearbyUserCard({
+    super.key,
+    required this.user,
+    required this.unreadCount,
+    required this.onTapChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final displayName = user.displayName ?? user.username;
+    final bio = user.bio ?? 'Nearby Connect Ephemeral Peer';
+    final interests = user.interests ?? const ['Flutter', 'Go', 'P2P', 'BLE Mesh'];
+    final rssiVal = user.rssi ?? -60;
+    final signalText = rssiVal > -70 ? 'Strong (-${rssiVal.abs()} dBm)' : 'Good (-${rssiVal.abs()} dBm)';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: colorScheme.surfaceContainerLow,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Large Avatar with Online Status Ring
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: colorScheme.primaryContainer,
+                      backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                          ? NetworkImage(user.avatarUrl!) as ImageProvider
+                          : null,
+                      child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                          ? Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: user.isOnline ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colorScheme.surface, width: 2.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 17,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${user.distanceMeters.toStringAsFixed(1)}m away',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '@${user.username} • ${user.isOnline ? 'Active now' : 'Last seen recently'}',
+                        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.wifi_tethering_rounded, size: 13, color: colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            signalText,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorScheme.primary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Short Bio
+            Text(
+              bio,
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+
+            // Shared Interests ChoiceChips
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: interests
+                  .map(
+                    (interest) => Chip(
+                      label: Text('#$interest', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                      backgroundColor: colorScheme.surfaceContainerHigh,
+                      padding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 14),
+
+            // "Tap to Chat" CTA FilledButton
+            Row(
+              children: [
+                if (unreadCount > 0) ...[
+                  Badge(
+                    label: Text('$unreadCount unread'),
+                    backgroundColor: colorScheme.error,
+                  ),
+                  const Spacer(),
+                ] else
+                  const Spacer(),
+                FilledButton.tonalIcon(
+                  onPressed: onTapChat,
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                  label: const Text('Tap to Chat'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingRadarSkeleton extends StatelessWidget {
+  final AnimationController animationController;
+
+  const _LoadingRadarSkeleton({required this.animationController});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 100,
+            height: 100,
+            child: AnimatedBuilder(
+              animation: animationController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _RadarRipplePainter(
+                    progress: animationController.value,
+                    color: colorScheme.primary,
+                  ),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.radar_rounded, size: 36, color: colorScheme.onPrimaryContainer),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Scanning nearby spatial area...',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Discovering BLE mesh & GPS active peers within range',
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationDisabledCard extends StatelessWidget {
+  final String errorMessage;
+  final VoidCallback onRetry;
+
+  const _LocationDisabledCard({required this.errorMessage, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        color: colorScheme.errorContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_off_rounded, size: 48, color: colorScheme.onErrorContainer),
+              const SizedBox(height: 16),
+              Text(
+                'Location Access Required',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onErrorContainer,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                errorMessage.isNotEmpty
+                    ? errorMessage
+                    : 'Location services or permissions are disabled. Please enable high accuracy location.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colorScheme.onErrorContainer.withOpacity(0.9)),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.gps_fixed_rounded),
+                label: const Text('Enable Location & Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyNearbyState extends StatelessWidget {
+  final VoidCallback onScan;
+
+  const _EmptyNearbyState({required this.onScan});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.sensors_off_rounded, size: 52, color: colorScheme.secondary),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Nearby Users Found',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ensure another active user has Nearby Connect open on a nearby device within range.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onScan,
+              icon: const Icon(Icons.radar_rounded),
+              label: const Text('Scan Spatial Area Again'),
+            ),
+          ],
+        ),
       ),
     );
   }

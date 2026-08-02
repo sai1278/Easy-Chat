@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class ProximityUser {
   final String userId;
   final String username;
+  final String? displayName;
+  final String? avatarUrl;
+  final String? bio;
+  final List<String>? interests;
   final double distanceMeters;
   final bool isOnline;
   final DateTime lastSeen;
@@ -14,6 +18,10 @@ class ProximityUser {
   const ProximityUser({
     required this.userId,
     required this.username,
+    this.displayName,
+    this.avatarUrl,
+    this.bio,
+    this.interests,
     required this.distanceMeters,
     required this.isOnline,
     required this.lastSeen,
@@ -25,6 +33,10 @@ class ProximityUser {
   ProximityUser copyWith({
     String? userId,
     String? username,
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+    List<String>? interests,
     double? distanceMeters,
     bool? isOnline,
     DateTime? lastSeen,
@@ -35,6 +47,10 @@ class ProximityUser {
     return ProximityUser(
       userId: userId ?? this.userId,
       username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bio: bio ?? this.bio,
+      interests: interests ?? this.interests,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
