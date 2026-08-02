@@ -50,29 +50,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatControllerProvider(ChatSessionArgs(roomId: widget.roomId, peerId: widget.peerId)));
     final controller = ref.read(chatControllerProvider(ChatSessionArgs(roomId: widget.roomId, peerId: widget.peerId)).notifier);
     final currentUserId = ref.watch(chatRepositoryProvider).currentUserId;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.blueGrey.shade100,
-              child: Text(widget.peerId.isNotEmpty ? widget.peerId[0].toUpperCase() : 'C'),
+              radius: 18,
+              backgroundColor: colorScheme.primaryContainer,
+              child: Text(
+                widget.peerId.isNotEmpty ? widget.peerId[0].toUpperCase() : 'C',
+                style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onPrimaryContainer),
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chat with ${widget.peerId.toUpperCase()}',
+                  widget.peerId.toUpperCase(),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Row(
                   children: [
                     Container(
-                      width: 6,
-                      height: 6,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: chatState.isRecipientOnline ? Colors.green : Colors.grey,
@@ -80,8 +84,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      chatState.isRecipientOnline ? 'online' : 'offline',
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      chatState.isRecipientOnline ? 'Active nearby' : 'Offline',
+                      style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -89,35 +93,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ],
         ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Column(
         children: [
           // Connection status/offline banner
           if (!chatState.isRecipientOnline)
             Container(
-              color: Colors.amber.shade100,
+              color: colorScheme.tertiaryContainer,
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: const Center(
-                child: Text(
-                  'Offline session: messages will sync on reconnect',
-                  style: TextStyle(fontSize: 11, color: Colors.brown),
-                ),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.sync_problem_rounded, size: 14, color: colorScheme.onTertiaryContainer),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Offline session: messages stored locally and synced on reconnect',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorScheme.onTertiaryContainer),
+                  ),
+                ],
               ),
             ),
 
           // Messages list
           Expanded(
             child: chatState.messages.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No ephemeral messages. Secure conversation initiated.',
-                      style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 40, color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'End-to-End Encrypted Session',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Messages are ephemeral and transmitted over secure WebSocket.',
+                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.8)),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     itemCount: chatState.messages.length,
                     itemBuilder: (context, index) {
                       final msg = chatState.messages[index];
@@ -138,30 +158,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
           // Real-time recipient typing indicator header
           if (chatState.isRecipientTyping)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.grey),
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Recipient is typing...',
-                      style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey),
+                      'Peer is typing...',
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: colorScheme.primary),
                     ),
                   ],
                 ),
               ),
             ),
 
-          // Message input bar
+          // Material 3 Pill Message input bar
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12, top: 4),
             child: Row(
               children: [
                 Expanded(
@@ -171,18 +191,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     onChanged: (text) {
                       _setTyping(text.isNotEmpty);
                     },
-                    decoration: const InputDecoration(
-                      hintText: 'Enter secure message...',
+                    decoration: InputDecoration(
+                      hintText: 'Type secure message...',
+                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainerHigh,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(24)),
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: BorderSide.none,
                       ),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blue),
+                IconButton.filled(
+                  icon: const Icon(Icons.send_rounded),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                  ),
                   onPressed: () {
                     final text = _textController.text;
                     if (text.trim().isNotEmpty) {
@@ -217,39 +245,52 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Align(
       alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isSelf ? Colors.blue.shade100 : Colors.grey.shade200,
+          color: isSelf ? colorScheme.primaryContainer : colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(isSelf ? 12 : 0),
-            bottomRight: Radius.circular(isSelf ? 0 : 12),
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isSelf ? 20 : 4),
+            bottomRight: Radius.circular(isSelf ? 4 : 20),
           ),
         ),
         child: Column(
-          crossAxisAlignment:
-              isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(text),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                color: isSelf ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+              ),
+            ),
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isSelf
+                        ? colorScheme.onPrimaryContainer.withOpacity(0.7)
+                        : colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 if (isSelf) ...[
                   const SizedBox(width: 4),
                   Icon(
-                    isRead ? Icons.done_all : Icons.done,
-                    size: 10,
-                    color: isRead ? Colors.blue : Colors.grey,
+                    isRead ? Icons.done_all_rounded : Icons.done_rounded,
+                    size: 14,
+                    color: isRead ? colorScheme.primary : colorScheme.onPrimaryContainer.withOpacity(0.7),
                   ),
                 ]
               ],

@@ -9,6 +9,7 @@ import 'core/navigation/app_router.dart';
 import 'core/network/dio_client.dart';
 import 'core/network/environment.dart';
 import 'core/network/websocket_client.dart';
+import 'core/theme/app_theme.dart';
 import 'core/utils/battery_optimizer.dart';
 import 'features/chat/data/chat_repository.dart';
 import 'features/chat/presentation/chat_controller.dart';
@@ -216,14 +217,13 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
       });
     });
 
-    // 4. Bind root router to GoRouter declarative navigator
+    // 4. Bind root router to GoRouter declarative navigator with Material 3 Theme System
     return MaterialApp.router(
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       title: 'Nearby Connect',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       routerConfig: AppRouter.router,
       debugShowCheckedModeBanner: false,
     );
