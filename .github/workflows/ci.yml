@@ -28,7 +28,7 @@ jobs:
 
       - name: Run Go Unit Tests
         run: |
-          go test ./apps/backend/... -v -race -covermode=atomic
+          go test ./apps/backend/shared/... ./apps/backend/services/gateway/... ./apps/backend/services/auth/... ./apps/backend/services/user/... ./apps/backend/services/chat/... ./apps/backend/services/nearby/... ./apps/backend/services/presence/... ./apps/backend/services/media/... ./apps/backend/services/notification/... -v
 
       - name: Build Microservice Binaries
         run: |

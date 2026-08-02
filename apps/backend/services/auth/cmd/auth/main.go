@@ -81,6 +81,11 @@ func main() {
 	// JWT configuration
 	secretEnv := os.Getenv("JWT_SECRET")
 	if secretEnv == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			log.Error("FATAL: JWT_SECRET environment variable is required in production mode")
+			os.Exit(1)
+		}
+		log.Warn("JWT_SECRET not set. Falling back to development test key. DO NOT USE IN PRODUCTION!")
 		secretEnv = "test_secret_key"
 	}
 	secretKey := []byte(secretEnv)
