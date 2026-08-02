@@ -112,8 +112,8 @@ func (m *MockQueueRepository) BatchNotification(ctx context.Context, userID stri
 
 // MockPushProvider implements domain.PushProvider.
 type MockPushProvider struct {
-	mu    sync.Mutex
-	sent  []*domain.Notification
+	mu   sync.Mutex
+	sent []*domain.Notification
 }
 
 func (m *MockPushProvider) SendPush(ctx context.Context, push *domain.Notification) error {
@@ -123,11 +123,17 @@ func (m *MockPushProvider) SendPush(ctx context.Context, push *domain.Notificati
 	return nil
 }
 
+// fixedActiveTime represents 14:00 UTC (outside quiet hours 22:00-08:00)
+var fixedActiveTime = MockClock{Time: time.Date(2026, 8, 2, 14, 0, 0, 0, time.UTC)}
+
+// fixedQuietTime represents 23:30 UTC (inside quiet hours 22:00-08:00)
+var fixedQuietTime = MockClock{Time: time.Date(2026, 8, 2, 23, 30, 0, 0, time.UTC)}
+
 func TestNotificationUsecase_ProcessNotification_Deduplication(t *testing.T) {
 	prefRepo := &MockPreferenceRepository{}
 	queueRepo := &MockQueueRepository{}
 	pusher := &MockPushProvider{}
-	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher)
+	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher, fixedActiveTime)
 
 	notif := &domain.Notification{
 		ID:          "notif_1",
@@ -149,30 +155,49 @@ func TestNotificationUsecase_ProcessNotification_Deduplication(t *testing.T) {
 	}
 }
 
-func TestNotificationUsecase_ProcessNotification_QuietHours(t *testing.T) {
+func TestNotificationUsecase_ProcessNotification_QuietHours_Active(t *testing.T) {
 	prefRepo := &MockPreferenceRepository{}
 	queueRepo := &MockQueueRepository{}
 	pusher := &MockPushProvider{}
-	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher)
 
-	// Configure quiet hours spanning midnight (22:00 to 08:00)
-	pref := &domain.NotificationPreference{
-		UserID:          "user_2",
-		EnablePush:      true,
-		QuietHoursStart: "22:00",
-		QuietHoursEnd:   "08:00",
-	}
-	_ = prefRepo.SavePreference(context.Background(), pref)
+	// Inject clock set to 23:30 (inside quiet hours 22:00 to 08:00)
+	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher, fixedQuietTime)
 
-	// 1. Verify quiet hours calculations directly
-	testTime := time.Date(2026, 7, 1, 23, 30, 0, 0, time.Local) // 23:30 (Quiet)
-	if !usecase.checkQuietHours(testTime, pref.QuietHoursStart, pref.QuietHoursEnd) {
-		t.Error("expected 23:30 to be within quiet hours")
+	notif := &domain.Notification{
+		ID:          "notif_quiet_1",
+		RecipientID: "user_quiet",
+		Title:       "Quiet Title",
+		Body:        "Quiet Body",
 	}
 
-	testTimeActive := time.Date(2026, 7, 1, 14, 0, 0, 0, time.Local) // 14:00 (Active)
-	if usecase.checkQuietHours(testTimeActive, pref.QuietHoursStart, pref.QuietHoursEnd) {
-		t.Error("expected 14:00 to be outside quiet hours")
+	err := usecase.ProcessNotification(context.Background(), notif)
+	if err != ErrQuietHours {
+		t.Fatalf("expected ErrQuietHours during active quiet hours, got: %v", err)
+	}
+
+	if len(queueRepo.retryList) != 1 {
+		t.Errorf("expected 1 notification queued for retry, got %d", len(queueRepo.retryList))
+	}
+}
+
+func TestNotificationUsecase_ProcessNotification_QuietHours_Inactive(t *testing.T) {
+	prefRepo := &MockPreferenceRepository{}
+	queueRepo := &MockQueueRepository{}
+	pusher := &MockPushProvider{}
+
+	// Inject clock set to 14:00 (outside quiet hours)
+	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher, fixedActiveTime)
+
+	notif := &domain.Notification{
+		ID:          "notif_active_1",
+		RecipientID: "user_active",
+		Title:       "Active Title",
+		Body:        "Active Body",
+	}
+
+	err := usecase.ProcessNotification(context.Background(), notif)
+	if err != nil {
+		t.Fatalf("expected no error outside quiet hours, got: %v", err)
 	}
 }
 
@@ -180,7 +205,7 @@ func TestNotificationUsecase_ProcessNotification_Throttling(t *testing.T) {
 	prefRepo := &MockPreferenceRepository{}
 	queueRepo := &MockQueueRepository{}
 	pusher := &MockPushProvider{}
-	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher)
+	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher, fixedActiveTime)
 
 	// Send 6 separate notifications (limit is 5)
 	for i := 1; i <= 6; i++ {
@@ -207,7 +232,7 @@ func TestNotificationUsecase_ProcessNotification_Batching(t *testing.T) {
 	prefRepo := &MockPreferenceRepository{}
 	queueRepo := &MockQueueRepository{}
 	pusher := &MockPushProvider{}
-	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher)
+	usecase := NewNotificationUsecase(prefRepo, queueRepo, pusher, fixedActiveTime)
 
 	// Batch is set to flush at size 3
 	for i := 1; i <= 3; i++ {

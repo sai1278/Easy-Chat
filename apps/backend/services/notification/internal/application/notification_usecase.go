@@ -22,13 +22,19 @@ type NotificationUsecase struct {
 	prefRepo  domain.PreferenceRepository
 	queueRepo domain.QueueRepository
 	pusher    domain.PushProvider
+	clock     Clock
 }
 
-func NewNotificationUsecase(prefRepo domain.PreferenceRepository, queueRepo domain.QueueRepository, pusher domain.PushProvider) *NotificationUsecase {
+func NewNotificationUsecase(prefRepo domain.PreferenceRepository, queueRepo domain.QueueRepository, pusher domain.PushProvider, clock ...Clock) *NotificationUsecase {
+	var clk Clock = RealClock{}
+	if len(clock) > 0 && clock[0] != nil {
+		clk = clock[0]
+	}
 	return &NotificationUsecase{
 		prefRepo:  prefRepo,
 		queueRepo: queueRepo,
 		pusher:    pusher,
+		clock:     clk,
 	}
 }
 
@@ -53,8 +59,8 @@ func (u *NotificationUsecase) ProcessNotification(ctx context.Context, notif *do
 		return ErrPushDisabled
 	}
 
-	// 3. Evaluate Quiet Hours boundaries
-	inQuietHours := u.checkQuietHours(time.Now(), pref.QuietHoursStart, pref.QuietHoursEnd)
+	// 3. Evaluate Quiet Hours boundaries using injected clock
+	inQuietHours := u.checkQuietHours(u.clock.Now(), pref.QuietHoursStart, pref.QuietHoursEnd)
 	if inQuietHours {
 		// Queue for retry delivery after quiet hours end (e.g. mock delay queue)
 		_ = u.queueRepo.QueueRetry(ctx, notif, 1*time.Hour)
