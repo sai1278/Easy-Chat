@@ -53,7 +53,19 @@ class FakeWebSocketClient implements WebSocketClient {
 // Minimal fake ChatRepository for testing
 class FakeChatRepository implements ChatRepository {
   @override
+  String? activeRoomId;
+
+  @override
+  Stream<MessageEntity> get incomingMessages => const Stream.empty();
+
+  @override
   String get currentUserId => 'test-user-id';
+
+  @override
+  Future<void> updateCurrentUserId(String userId) async {}
+
+  @override
+  Future<void> ensureConnected([String? token]) async {}
 
   @override
   Future<String> getOrCreateRoom(String userA, String userB) async {

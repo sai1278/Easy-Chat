@@ -1,0 +1,78 @@
+# Production Multi-Zone High-Availability Patch
+# Applies PodAntiAffinity and TopologySpreadConstraints across availability zones (us-central1-a, us-central1-b, us-central1-c)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service-production
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - gateway-service
+              topologyKey: topology.kubernetes.io/zone
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: gateway-service
+      containers:
+      - name: gateway
+        image: easychat/gateway-service:v1.0.0
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: easychat-managed-cert
+  namespace: default
+spec:
+  domains:
+  - easychat.com
+  - api.easychat.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: easychat-gcp-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "easychat-managed-cert"
+    kubernetes.io/ingress.global-static-ip-name: "easychat-production-ip"
+spec:
+  rules:
+  - host: api.easychat.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 8080

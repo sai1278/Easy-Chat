@@ -2,6 +2,7 @@ package http
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto"
@@ -12,13 +13,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -235,15 +236,39 @@ func (r *Router) RegisterRoutes() http.Handler {
 	r.mux.HandleFunc("/api/v1/compliance/", r.ProxyHandler(r.complianceCluster, r.complianceCB))
 	r.mux.HandleFunc("/ws", r.ProxyHandler(r.chatCluster, r.chatCB))
 
-	// Chain middlewares: Correlation/Logging -> Security Headers -> Gzip -> Rate Limiting -> Auth -> Request Validation -> Router Mux
+	// Chain middlewares: Correlation/Logging -> Cors -> Security Headers -> Gzip -> Rate Limiting -> Auth -> Request Validation -> Router Mux
 	handler := r.RequestValidationMiddleware(r.mux)
 	handler = r.AuthValidationMiddleware(handler)
 	handler = r.RateLimitMiddleware(handler)
 	handler = r.GzipCompressionMiddleware(handler)
 	handler = r.SecurityHeadersMiddleware(handler)
+	handler = r.CorsMiddleware(handler)
 	handler = r.LoggingAndRequestIDMiddleware(handler)
 
 	return handler
+}
+
+// CorsMiddleware handles Cross-Origin Resource Sharing (CORS) preflight OPTIONS requests and sets headers.
+func (r *Router) CorsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		origin := req.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Request-Id, Idempotency-Key, Upgrade, Connection")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+
+		if req.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, req)
+	})
 }
 
 // ProxyHandler performs reverse proxying with round-robin balancing and circuit breakers.
@@ -283,20 +308,7 @@ func (r *Router) ProxyHandler(lb *LoadBalancer, cb *CircuitBreaker) http.Handler
 			rw.WriteHeader(http.StatusBadGateway)
 		}
 
-		// Support WebSockets proxying by preserving Upgrade and Connection headers
-		isWebSocket := strings.ToLower(req.Header.Get("Upgrade")) == "websocket" || req.URL.Path == "/ws"
-		if isWebSocket {
-			proxy.Transport = &webSocketTransport{
-				Transport: http.DefaultTransport,
-			}
-			proxy.ModifyResponse = func(resp *http.Response) error {
-				if resp.StatusCode == http.StatusSwitchingProtocols {
-					resp.Header.Set("Connection", "Upgrade")
-					resp.Header.Set("Upgrade", "websocket")
-				}
-				return nil
-			}
-		}
+
 
 		// Set forwarding headers
 		req.URL.Host = targetURL.Host
@@ -309,6 +321,7 @@ func (r *Router) ProxyHandler(lb *LoadBalancer, cb *CircuitBreaker) http.Handler
 			req.Header.Set("X-Request-ID", corrID)
 		}
 
+		isWebSocket := strings.ToLower(req.Header.Get("Upgrade")) == "websocket" || req.URL.Path == "/ws"
 		if isWebSocket {
 			proxy.ServeHTTP(w, req)
 			cb.OnSuccess()
@@ -424,9 +437,9 @@ func (r *Router) LoggingAndRequestIDMiddleware(next http.Handler) http.Handler {
 // Middleware 5: Authentication Validation
 func (r *Router) AuthValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Exempt login, session creation, and health endpoints from authentication
+		// Exempt login, onboard, registration, OPTIONS preflight, and health endpoints from authentication
 		path := req.URL.Path
-		if path == "/healthz" || strings.HasPrefix(path, "/api/v1/auth/login") || strings.HasPrefix(path, "/api/v1/auth/register") || path == "/ws" || strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
+		if req.Method == http.MethodOptions || path == "/healthz" || strings.HasPrefix(path, "/api/v1/auth/") || path == "/ws" || strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
 			next.ServeHTTP(w, req)
 			return
 		}
@@ -631,46 +644,77 @@ func decodeRSAKeyBytes(nStr, eStr string) (*rsa.PublicKey, error) {
 	}, nil
 }
 
-// gzipResponseWriter wraps http.ResponseWriter to write through a gzip compressor.
-// It implements http.Flusher so SSE and streaming handlers function correctly (LOW-12).
-type gzipResponseWriter struct {
-	io.Writer
+// gzipBufferedWriter captures response bytes before compression
+// so that the correct Content-Length can be set after compressing.
+type gzipBufferedWriter struct {
 	http.ResponseWriter
-	gz *gzip.Writer
+	buf        bytes.Buffer
+	statusCode int
+	header     http.Header
+	wroteHeader bool
 }
 
-func (gzw *gzipResponseWriter) Write(b []byte) (int, error) {
-	return gzw.Writer.Write(b)
-}
-
-// Flush flushes both the gzip compressor and the underlying ResponseWriter.
-func (gzw *gzipResponseWriter) Flush() {
-	_ = gzw.gz.Flush()
-	if f, ok := gzw.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
+func newGzipBufferedWriter(w http.ResponseWriter) *gzipBufferedWriter {
+	return &gzipBufferedWriter{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+		header:         w.Header(),
 	}
 }
 
+func (g *gzipBufferedWriter) WriteHeader(code int) {
+	if !g.wroteHeader {
+		g.statusCode = code
+		g.wroteHeader = true
+	}
+}
+
+func (g *gzipBufferedWriter) Write(b []byte) (int, error) {
+	return g.buf.Write(b)
+}
+
+// GzipCompressionMiddleware compresses responses for clients that accept gzip.
+// It buffers the entire handler output, compresses it, then sets the correct
+// Content-Length before sending — preventing the "Content-Length mismatch" bug
+// that caused dart:io to report "HttpConnection closed while receiving data".
+//
+// Compression is SKIPPED when:
+//   - Client does not send Accept-Encoding: gzip
+//   - Request is a WebSocket upgrade
+//   - Request contains Expect: 100-continue (dart:io sends this for POST requests;
+//     the combination of an interim 100 Continue + gzip buffering produces a
+//     malformed response sequence that dart:io cannot parse)
 func (r *Router) GzipCompressionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Skip compression for WebSocket upgrades or clients that don't accept gzip.
+		// Skip compression for WebSocket upgrades, non-gzip clients,
+		// or Expect: 100-continue requests (dart:io POST bodies).
 		if strings.ToLower(req.Header.Get("Upgrade")) == "websocket" ||
-			!strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+			!strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") ||
+			strings.EqualFold(req.Header.Get("Expect"), "100-continue") {
 			next.ServeHTTP(w, req)
 			return
 		}
 
-		// Set headers before calling next to avoid committing them prematurely (MED-03).
+		// Capture the handler output into an in-memory buffer.
+		buf := newGzipBufferedWriter(w)
+		next.ServeHTTP(buf, req)
+
+		// Compress the buffered body.
+		var compressed bytes.Buffer
+		gz := gzip.NewWriter(&compressed)
+		_, _ = gz.Write(buf.buf.Bytes())
+		_ = gz.Close() // flushes and writes gzip trailer
+
+		// Write correct headers BEFORE WriteHeader so they aren't lost.
+		w.Header().Del("Content-Length") // remove any stale raw-size header
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Del("Content-Length")
+		w.Header().Set("Content-Length", strconv.Itoa(compressed.Len()))
 
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-
-		gzw := &gzipResponseWriter{Writer: gz, ResponseWriter: w, gz: gz}
-		next.ServeHTTP(gzw, req)
+		w.WriteHeader(buf.statusCode)
+		_, _ = w.Write(compressed.Bytes())
 	})
 }
+
 
 // Ensure unused imports are referenced to prevent compile errors.
 var (

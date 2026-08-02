@@ -5,7 +5,7 @@
 # =====================================================
 # STAGE 1: COMPILATION BUILD ENVIRONMENT
 # =====================================================
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Force POSIX shell execution safety settings
 RUN set -eux; \
@@ -13,12 +13,11 @@ RUN set -eux; \
 
 WORKDIR /build
 
-# Retrieve dependency matrices and source trees
-COPY go.work ./
-COPY apps/backend/ ./apps/backend/
+ENV GOPROXY=direct
+ENV GOSUMDB=off
 
-# Validate and sync workspace dependencies
-RUN go work sync
+# Copy root workspace sources
+COPY . ./
 
 # Compile statically linked binary dynamically based on SERVICE_NAME build-arg
 ARG SERVICE_NAME

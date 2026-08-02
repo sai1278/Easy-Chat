@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'environment.dart';
 
@@ -123,8 +123,8 @@ class DioClient {
 
           // 2. Inject JWT Authorization header from cached in-memory token
           if (!_tokenLoaded) {
-            final prefs = await SharedPreferences.getInstance();
-            _cachedToken = prefs.getString('access_token');
+            const secureStorage = FlutterSecureStorage();
+            _cachedToken = await secureStorage.read(key: 'jwt_access_token');
             _tokenLoaded = true;
           }
           if (_cachedToken != null) {
@@ -224,15 +224,15 @@ class DioClient {
     }
   }
 
-  // Update token inside cached memory and SharedPreferences
+  // Update token inside cached memory and FlutterSecureStorage
   Future<void> updateToken(String? token) async {
     _cachedToken = token;
     _tokenLoaded = true;
-    final prefs = await SharedPreferences.getInstance();
+    const secureStorage = FlutterSecureStorage();
     if (token != null) {
-      await prefs.setString('access_token', token);
+      await secureStorage.write(key: 'jwt_access_token', value: token);
     } else {
-      await prefs.remove('access_token');
+      await secureStorage.delete(key: 'jwt_access_token');
     }
   }
 

@@ -1,15 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# HPA v2 — Cost-Optimised Autoscaling for All Services
-#
-# Changes from baseline:
-#  • minReplicas lowered 30–50% based on expected off-peak traffic
-#  • CPU scale threshold raised from 70 → 80% (reduces premature scale-out)
-#  • scaleDown stabilization window added (300s) to prevent thrash-based cost spikes
-#  • scaleUp 30s window keeps aggressive burst response
-#  • Memory metric retained on gateway (WebSocket memory-bound)
-#  • presence/user/notification/media receive HPA (were missing)
-# ─────────────────────────────────────────────────────────────────────────────
-
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -17,40 +5,39 @@ metadata:
   namespace: default
   annotations:
     cost-optimization/tier: "realtime"
-    cost-optimization/spot-eligible: "false"   # Gateway must be on On-Demand (WebSocket sticky)
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: gateway-service
-  minReplicas: 2          # was 3 — saves ~1 pod ($18-40/mo on e2-standard-2)
-  maxReplicas: 12
+  minReplicas: 1
+  maxReplicas: 6
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 80   # was 70 — avoids premature scale-out
+          averageUtilization: 50
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 85   # WebSocket sessions are memory-bound
+          averageUtilization: 80
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30    # Burst-responsive
+      stabilizationWindowSeconds: 15
       policies:
         - type: Pods
-          value: 3
-          periodSeconds: 30
+          value: 2
+          periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 300   # 5-min cooldown prevents thrash cost spikes
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 60
+          periodSeconds: 30
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -59,34 +46,33 @@ metadata:
   namespace: default
   annotations:
     cost-optimization/tier: "api"
-    cost-optimization/spot-eligible: "true"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: auth-service
-  minReplicas: 1          # was 2 — stateless JWT validation; 1 replica handles light load
-  maxReplicas: 6
+  minReplicas: 1
+  maxReplicas: 4
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 50
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 10
       policies:
         - type: Pods
           value: 2
-          periodSeconds: 30
+          periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 90
+          periodSeconds: 30
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -95,128 +81,11 @@ metadata:
   namespace: default
   annotations:
     cost-optimization/tier: "realtime"
-    cost-optimization/spot-eligible: "true"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: chat-service
-  minReplicas: 2          # was 3 — save 1 pod base during off-peak
-  maxReplicas: 15         # allow higher burst for peak chat traffic
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 75    # Chat is CPU+memory bound at high WS concurrency
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 20
-      policies:
-        - type: Pods
-          value: 4
-          periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 60
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: nearby-service-hpa
-  namespace: default
-  annotations:
-    cost-optimization/tier: "api"
-    cost-optimization/spot-eligible: "true"
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: nearby-service
-  minReplicas: 2          # was 3 — GeoQuery is CPU-bound but bursty; let HPA handle it
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 30
-      policies:
-        - type: Pods
-          value: 3
-          periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 60
----
-# ── NEW: presence-service HPA (was missing) ──────────────────────────────────
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: presence-service-hpa
-  namespace: default
-  annotations:
-    cost-optimization/tier: "realtime"
-    cost-optimization/spot-eligible: "true"
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: presence-service
-  minReplicas: 1
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 30
-      policies:
-        - type: Pods
-          value: 2
-          periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 90
----
-# ── NEW: user-service HPA (was missing) ──────────────────────────────────────
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: user-service-hpa
-  namespace: default
-  annotations:
-    cost-optimization/tier: "api"
-    cost-optimization/spot-eligible: "true"
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: user-service
   minReplicas: 1
   maxReplicas: 5
   metrics:
@@ -225,22 +94,132 @@ spec:
         name: cpu
         target:
           type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
           averageUtilization: 80
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 10
       policies:
         - type: Pods
           value: 2
-          periodSeconds: 30
+          periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 120
+          periodSeconds: 30
 ---
-# ── NEW: media-service HPA (was missing) ─────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nearby-service-hpa
+  namespace: default
+  annotations:
+    cost-optimization/tier: "api"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nearby-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 10
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: presence-service-hpa
+  namespace: default
+  annotations:
+    cost-optimization/tier: "realtime"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: presence-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 10
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-service-hpa
+  namespace: default
+  annotations:
+    cost-optimization/tier: "api"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 10
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -248,36 +227,34 @@ metadata:
   namespace: default
   annotations:
     cost-optimization/tier: "batch"
-    cost-optimization/spot-eligible: "true"    # Media encoding jobs tolerate preemption
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: media-service
   minReplicas: 1
-  maxReplicas: 8
+  maxReplicas: 4
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 75   # CPU-intensive transcoding; scale earlier
+          averageUtilization: 50
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 10
       policies:
         - type: Pods
-          value: 3
-          periodSeconds: 30
+          value: 2
+          periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 600          # 10-min cooldown; transcoding jobs finish before scale-in
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 120
+          periodSeconds: 30
 ---
-# ── NEW: notification-service HPA (was missing) ──────────────────────────────
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -285,7 +262,6 @@ metadata:
   namespace: default
   annotations:
     cost-optimization/tier: "batch"
-    cost-optimization/spot-eligible: "true"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -299,17 +275,17 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 50
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 10
       policies:
         - type: Pods
           value: 2
-          periodSeconds: 60
+          periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 120
+          periodSeconds: 30

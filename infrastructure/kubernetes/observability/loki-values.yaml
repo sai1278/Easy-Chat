@@ -1,0 +1,74 @@
+## Loki single-binary mode — suitable for local Kind cluster
+
+deploymentMode: SingleBinary
+
+loki:
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  limits_config:
+    retention_period: 168h   # 7 days
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+    max_query_series: 10000
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  persistence:
+    enabled: true
+    storageClass: standard
+    size: 5Gi
+
+## Disable multi-tenant for simplicity
+auth_enabled: false
+
+## Backend, read, write disabled for single binary
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+## Gateway
+gateway:
+  enabled: false
+
+## Test: disable chunk cache for simplicity
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+## Monitoring self
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus
+
+test:
+  enabled: false

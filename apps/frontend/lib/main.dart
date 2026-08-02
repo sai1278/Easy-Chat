@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'core/database/isar_service.dart';
 import 'core/navigation/app_router.dart';
 import 'core/network/dio_client.dart';
+import 'core/network/environment.dart';
 import 'core/network/websocket_client.dart';
 import 'core/utils/battery_optimizer.dart';
 import 'features/chat/data/chat_repository.dart';
@@ -13,10 +15,25 @@ import 'features/chat/presentation/chat_controller.dart';
 import 'features/nearby/presentation/nearby_screen.dart';
 import 'features/nearby/domain/proximity_user.dart';
 
+import 'core/database/entities/message_entity.dart';
+
+final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 final webSocketClientProvider = Provider<WebSocketClient>((ref) => throw UnimplementedError());
+
+final unreadCountsProvider = StateProvider<Map<String, int>>((ref) => {});
+
+final incomingMessageStreamProvider = StreamProvider.autoDispose<MessageEntity?>((ref) {
+  final repo = ref.watch(chatRepositoryProvider);
+  return repo.incomingMessages;
+});
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final config = ApiConfig.fromEnvironment();
+  dev.log('[NetworkConfig] Effective API Base URL: ${config.baseUrl}', name: 'NetworkConfig');
+  dev.log('[NetworkConfig] Effective WebSocket URL: ${config.wsUrl}', name: 'NetworkConfig');
 
   // 1. Initialize Isar offline-first local database cache
   final isarService = await IsarService.init();
@@ -53,7 +70,7 @@ void main() async {
         // Override repository provider with initialized instance
         chatRepositoryProvider.overrideWith((ref) {
           final repo = ChatRepository(
-            isar: isarService.isar,
+            isar: isarService,
             dioClient: dioClient,
             wsClient: wsClient,
             currentUserId: effectiveUserId,
@@ -105,9 +122,10 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
     );
 
     // Bootstrap optimizations and eager repository initialization after the build frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _batteryOptimizer.start();
-      ref.read(chatRepositoryProvider);
+      final repo = ref.read(chatRepositoryProvider);
+      await repo.ensureConnected();
     });
   }
 
@@ -140,8 +158,67 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
       _batteryOptimizer.setNearbyDeviceDensity(next.length);
     });
 
+    // Listen for incoming WebSocket message notifications globally
+    ref.listen<AsyncValue<MessageEntity?>>(incomingMessageStreamProvider, (prev, next) {
+      next.whenData((msg) {
+        if (msg == null) return;
+        final chatRepo = ref.read(chatRepositoryProvider);
+        if (chatRepo.activeRoomId == msg.roomId) return; // User is already in this chat room
+
+        // Increment unread count for the sender
+        ref.read(unreadCountsProvider.notifier).update((state) {
+          final map = Map<String, int>.from(state);
+          map[msg.senderId] = (map[msg.senderId] ?? 0) + 1;
+          return map;
+        });
+
+        final text = String.fromCharCodes(msg.encryptedPayload);
+        final messenger = rootScaffoldMessengerKey.currentState;
+        messenger?.hideCurrentSnackBar();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'New Message',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.teal.shade800,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'View',
+              textColor: Colors.amber,
+              onPressed: () {
+                AppRouter.router.go('/chat/${msg.roomId}?peerId=${msg.senderId}');
+              },
+            ),
+          ),
+        );
+      });
+    });
+
     // 4. Bind root router to GoRouter declarative navigator
     return MaterialApp.router(
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       title: 'Nearby Connect',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
@@ -152,3 +229,4 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
     );
   }
 }
+

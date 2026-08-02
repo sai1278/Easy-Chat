@@ -334,7 +334,7 @@ func (c *Client) readPump() {
 
 		case "MESSAGE":
 			if packet.Message != nil {
-				opCtx, opCancel := context.WithTimeout(ctx, 5*time.Second)
+				opCtx, opCancel := context.WithTimeout(ctx, 15*time.Second)
 				err := c.server.usecase.ProcessIncomingMessage(opCtx, c.userID, packet.Message)
 				if err != nil {
 					slog.Error("Failed to process incoming message", "err", err)
@@ -344,7 +344,7 @@ func (c *Client) readPump() {
 
 		case "RECEIPT":
 			if packet.Receipt != nil {
-				opCtx, opCancel := context.WithTimeout(ctx, 5*time.Second)
+				opCtx, opCancel := context.WithTimeout(ctx, 15*time.Second)
 				_ = c.server.usecase.ProcessReadReceipt(opCtx, c.userID, packet.Receipt)
 				opCancel()
 			}

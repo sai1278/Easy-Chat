@@ -22,6 +22,7 @@ import (
 	"nearby/backend/services/nearby/internal/infrastructure/cache"
 	"nearby/backend/services/nearby/internal/infrastructure/persistence"
 	transportgrpc "nearby/backend/services/nearby/internal/transport/grpc"
+	transporthttp "nearby/backend/services/nearby/internal/transport/http"
 	"nearby/backend/shared/config"
 	"nearby/backend/shared/logger"
 	"nearby/backend/shared/tracing"
@@ -32,8 +33,11 @@ func main() {
 	slog.SetDefault(log)
 
 	cfg := config.LoadBaseConfig()
+	if os.Getenv("PORT") == "" || cfg.Port == 8088 {
+		cfg.Port = 8083
+	}
 
-	log.Info("Starting Nearby Proximity Service...", "environment", cfg.Environment, "port", cfg.Port)
+	log.Info("Starting Nearby Proximity Service...", "environment", cfg.Environment, "grpcPort", cfg.Port, "httpPort", 8088)
 
 	// Initialize OpenTelemetry Tracing
 	_, err := tracing.InitTracer("nearby-service")
@@ -117,9 +121,12 @@ func main() {
 
 	log.Info("Nearby Service gRPC server is listening", "port", cfg.Port)
 
-	// 5. Start HTTP Health & Prometheus Metrics Server on Port 8088
+	// 5. Start HTTP REST, Health & Prometheus Metrics Server on Port 8088
 	httpPort := 8088
 	httpMux := http.NewServeMux()
+
+	httpHandler := transporthttp.NewHandler(usecase, geoRepo)
+	httpHandler.RegisterRoutes(httpMux)
 
 	httpMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

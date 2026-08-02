@@ -1,30 +1,55 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/database/entities/message_entity.dart';
+import '../../../core/database/isar_service.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/environment.dart';
 import '../../../core/network/websocket_client.dart';
 
 class ChatRepository {
-  final Isar _isar;
+  final IsarService _storage;
   final DioClient _dioClient;
   final WebSocketClient _wsClient;
-  final String _currentUserId;
+  final FlutterSecureStorage _secureStorage;
+  String _currentUserId;
+  String? activeRoomId;
   StreamSubscription<Map<String, dynamic>>? _wsSubscription;
+  final StreamController<MessageEntity> _incomingMessageController = StreamController<MessageEntity>.broadcast();
+
+  Stream<MessageEntity> get incomingMessages => _incomingMessageController.stream;
 
   ChatRepository({
-    required Isar isar,
+    required IsarService isar,
     required DioClient dioClient,
     required WebSocketClient wsClient,
     required String currentUserId,
-  })  : _isar = isar,
+    FlutterSecureStorage secureStorage = const FlutterSecureStorage(),
+  })  : _storage = isar,
         _dioClient = dioClient,
         _wsClient = wsClient,
-        _currentUserId = currentUserId;
+        _currentUserId = currentUserId,
+        _secureStorage = secureStorage;
 
   String get currentUserId => _currentUserId;
+
+  Future<void> updateCurrentUserId(String userId) async {
+    _currentUserId = userId;
+  }
+
+  Future<void> ensureConnected([String? token]) async {
+    if (!_wsClient.isConnected) {
+      final activeToken = token ?? await _secureStorage.read(key: 'jwt_access_token');
+      final activeUserId = await _secureStorage.read(key: 'authenticated_user_id');
+      if (activeUserId != null && activeUserId.isNotEmpty) {
+        _currentUserId = activeUserId;
+      }
+      if (activeToken != null && activeToken.isNotEmpty) {
+        startWebSocketListener(activeToken);
+      }
+    }
+  }
 
   // Resolves or creates a mutually unique active chat room via REST API
   Future<String> getOrCreateRoom(String userA, String userB) async {
@@ -42,17 +67,14 @@ class ChatRepository {
     throw Exception('Failed to resolve room ID: ${response.statusMessage}');
   }
 
-  // Watch messages reactively from Isar database cache
+  // Watch messages reactively from database cache
   Stream<List<MessageEntity>> watchMessages(String roomId) {
-    return _isar.messageEntitys
-        .filter()
-        .roomIdEqualTo(roomId)
-        .sortByCreatedAt()
-        .watch(fireImmediately: true);
+    return _storage.watchMessages(roomId);
   }
 
   // Send message using write-through cache: save locally first, then sync over API
   Future<void> sendMessage(String roomId, String text) async {
+    await ensureConnected();
     final messageId = const Uuid().v4();
     final idempotencyKey = const Uuid().v4();
     final payloadBytes = List<int>.from(text.codeUnits); // Encrypted payload bytes
@@ -65,10 +87,8 @@ class ChatRepository {
       ..idempotencyKey = idempotencyKey
       ..createdAt = DateTime.now();
 
-    // 1. Save locally in Isar
-    await _isar.writeTxn(() async {
-      await _isar.messageEntitys.put(messageEntity);
-    });
+    // 1. Save locally via storage abstraction
+    await _storage.saveMessage(messageEntity);
 
     // 2. Dispatch asynchronously to server via WebSocket
     if (_wsClient.isConnected) {
@@ -85,12 +105,13 @@ class ChatRepository {
         }
       });
     } else {
-      // Fallback/offline: message remains in Isar local cache
+      // Fallback/offline: message remains in local cache
     }
   }
 
   // Subscribes to the WebSocket server cluster inbox using JWT token (fixes CRIT-06)
   void startWebSocketListener(String token) {
+    if (token.isEmpty) return;
     final wsUrl = ApiConfig.fromEnvironment().wsUrl;
     _wsClient.connect(wsUrl, token: token);
     
@@ -121,10 +142,11 @@ class ChatRepository {
             ..idempotencyKey = msgData['idempotency_key'] ?? ''
             ..createdAt = DateTime.tryParse(msgData['created_at'] as String? ?? '') ?? DateTime.now();
 
-          // Save received message to Isar database cache
-          await _isar.writeTxn(() async {
-            await _isar.messageEntitys.put(entity);
-          });
+          // Save received message to database cache via storage abstraction
+          await _storage.saveMessage(entity);
+
+          // Emit to global UI incoming messages broadcast stream
+          _incomingMessageController.add(entity);
 
           // Reply with message delivery ACK receipt
           sendReadReceipt(roomId, messageId, 'DELIVERED');
@@ -160,6 +182,7 @@ class ChatRepository {
   void close() {
     _wsSubscription?.cancel(); // Cancel stream subscription to prevent leaks (fixes HIGH-09)
     _wsSubscription = null;
+    _incomingMessageController.close();
     _wsClient.close();
   }
 }

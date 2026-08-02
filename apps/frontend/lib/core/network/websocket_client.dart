@@ -83,8 +83,8 @@ class WebSocketClient {
 
   // Batched outbound sending
   void send(Map<String, dynamic> packet) {
-    // PING and RECONNECT are latency-critical and bypass the batching buffer
-    if (packet['type'] == 'PING' || packet['type'] == 'RECONNECT') {
+    // PING, RECONNECT, and MESSAGE are latency-critical and bypass the batching buffer
+    if (packet['type'] == 'PING' || packet['type'] == 'RECONNECT' || packet['type'] == 'MESSAGE') {
       _sendImmediate(packet);
       return;
     }

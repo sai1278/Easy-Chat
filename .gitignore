@@ -12,6 +12,9 @@ apps/frontend/ios/.symlinks/
 apps/frontend/android/.gradle/
 apps/frontend/android/app/build/
 apps/frontend/android/captures/
+apps/frontend/android/key.properties
+*.jks
+*.keystore
 apps/frontend/lib/generated_plugin_registrant.dart
 
 # Go & Binaries
@@ -45,6 +48,7 @@ desktop.ini
 *.jks
 *.keystore
 *.p12
+google-services.json
 
 # Local Development Scripts & Temporary Artifacts
 probe_*.ps1

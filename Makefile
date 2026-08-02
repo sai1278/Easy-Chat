@@ -63,10 +63,14 @@ test:
 backend: proto
 	@echo "Compiling backend binaries..."
 	mkdir -p $(BACKEND_DIR)/bin
-	cd $(BACKEND_DIR) && go build -o bin/auth ./cmd/auth/main.go
-	cd $(BACKEND_DIR) && go build -o bin/presence ./cmd/presence/main.go
-	cd $(BACKEND_DIR) && go build -o bin/matching ./cmd/matching/main.go
-	cd $(BACKEND_DIR) && go build -o bin/chat ./cmd/chat/main.go
+	cd $(BACKEND_DIR)/services/auth && go build -o ../../bin/auth.exe ./cmd/auth/main.go
+	cd $(BACKEND_DIR)/services/user && go build -o ../../bin/user.exe ./cmd/user/main.go
+	cd $(BACKEND_DIR)/services/chat && go build -o ../../bin/chat.exe ./cmd/chat/main.go
+	cd $(BACKEND_DIR)/services/nearby && go build -o ../../bin/nearby.exe ./cmd/nearby/main.go
+	cd $(BACKEND_DIR)/services/presence && go build -o ../../bin/presence.exe ./cmd/presence/main.go
+	cd $(BACKEND_DIR)/services/notification && go build -o ../../bin/notification.exe ./cmd/notification/main.go
+	cd $(BACKEND_DIR)/services/media && go build -o ../../bin/media.exe ./cmd/media/main.go
+	cd $(BACKEND_DIR)/services/gateway && go build -o ../../bin/gateway.exe ./cmd/gateway/main.go
 
 mobile: proto
 	@if command -v flutter &>/dev/null; then \

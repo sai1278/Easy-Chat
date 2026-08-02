@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ProximityUser models a scanned nearby device user (fixes HIGH-15).
+/// ProximityUser represents an active nearby user discovered via BLE scanning, GPS location streams, or the backend Nearby service.
 class ProximityUser {
   final String userId;
   final String username;
   final double distanceMeters;
   final bool isOnline;
   final DateTime lastSeen;
+  final double? latitude;
+  final double? longitude;
+  final int? rssi;
 
   const ProximityUser({
     required this.userId,
@@ -14,33 +17,35 @@ class ProximityUser {
     required this.distanceMeters,
     required this.isOnline,
     required this.lastSeen,
+    this.latitude,
+    this.longitude,
+    this.rssi,
   });
+
+  ProximityUser copyWith({
+    String? userId,
+    String? username,
+    double? distanceMeters,
+    bool? isOnline,
+    DateTime? lastSeen,
+    double? latitude,
+    double? longitude,
+    int? rssi,
+  }) {
+    return ProximityUser(
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      rssi: rssi ?? this.rssi,
+    );
+  }
 }
 
-// State provider to simulate scanning and proximity lists (fixes HIGH-16).
-// In production, this can be updated dynamically by BLE / GPS scanners.
+/// Real dynamic proximity user list provider (empty by default until discovered)
 final proximityUsersProvider = StateProvider<List<ProximityUser>>((ref) {
-  return [
-    ProximityUser(
-      userId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      username: 'Alice (Within 100m)',
-      distanceMeters: 45.0,
-      isOnline: true,
-      lastSeen: DateTime.now(),
-    ),
-    ProximityUser(
-      userId: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-      username: 'Bob (Within 200m)',
-      distanceMeters: 120.0,
-      isOnline: true,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 2)),
-    ),
-    ProximityUser(
-      userId: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
-      username: 'Charlie (Offline)',
-      distanceMeters: 180.0,
-      isOnline: false,
-      lastSeen: DateTime.now().subtract(const Duration(hours: 1)),
-    ),
-  ];
+  return const [];
 });

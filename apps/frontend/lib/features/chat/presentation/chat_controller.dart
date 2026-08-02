@@ -66,6 +66,8 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   void _init() {
+    _repository.activeRoomId = _roomId;
+    _repository.ensureConnected();
     // 1. Subscribe to reactive local Isar database cache messages stream (fixes HIGH-11).
     _messageSubscription = _repository.watchMessages(_roomId).listen((messagesList) {
       state = state.copyWith(messages: messagesList);
@@ -100,6 +102,9 @@ class ChatController extends StateNotifier<ChatState> {
 
   @override
   void dispose() {
+    if (_repository.activeRoomId == _roomId) {
+      _repository.activeRoomId = null;
+    }
     // Cancel Isar subscription to prevent memory leaks and setState after dispose (fixes HIGH-11).
     _messageSubscription?.cancel();
     super.dispose();

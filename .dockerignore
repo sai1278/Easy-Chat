@@ -1,0 +1,17 @@
+.git
+.gitignore
+.github
+apps/frontend/build
+apps/frontend/.dart_tool
+apps/frontend/.pub-cache
+apps/frontend/.pub
+*.exe
+*.tar
+scratch/
+docs/
+e2e_results.json
+infrastructure/terraform
+infrastructure/load-testing
+infrastructure/kubernetes/observability
+infrastructure/kubernetes/cloud
+*.md

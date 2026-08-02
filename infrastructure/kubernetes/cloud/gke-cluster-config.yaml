@@ -1,0 +1,80 @@
+# Production GKE Cluster Architecture Specification
+# Environment: Production Google Kubernetes Engine (GKE) Multi-Zone Managed Cluster
+apiVersion: container.cnrm.cloud.google.com/v1beta1
+kind: ContainerCluster
+metadata:
+  name: easychat-production-gke
+  namespace: config-connector
+spec:
+  location: us-central1
+  initialNodeCount: 1
+  ipAllocationPolicy:
+    useIpAliases: true
+  networkRef:
+    name: easychat-vpc
+  subnetworkRef:
+    name: easychat-subnet
+  privateClusterConfig:
+    enablePrivateNodes: true
+    enablePrivateEndpoint: false
+    masterIpv4CidrBlock: "172.16.0.0/28"
+  releaseChannel:
+    channel: REGULAR
+  addonsConfig:
+    httpLoadBalancing:
+      disabled: false
+    horizontalPodAutoscaling:
+      disabled: false
+    gcePersistentDiskCsiDriverConfig:
+      enabled: true
+---
+# GKE Auto-Scaling Multi-Zone Node Pool: Core Services
+apiVersion: container.cnrm.cloud.google.com/v1beta1
+kind: ContainerNodePool
+metadata:
+  name: easychat-core-nodepool
+  namespace: config-connector
+spec:
+  clusterRef:
+    name: easychat-production-gke
+  location: us-central1
+  autoscaling:
+    minNodeCount: 3
+    maxNodeCount: 15
+  management:
+    autoRepair: true
+    autoUpgrade: true
+  nodeConfig:
+    machineType: e2-standard-4
+    diskType: pd-ssd
+    diskSizeGb: 100
+    oauthScopes:
+    - https://www.googleapis.com/auth/cloud-platform
+    labels:
+      environment: production
+      workload-type: core-services
+    workloadMetadataConfig:
+      mode: GKE_METADATA
+---
+# Production StorageClasses
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gce-pd-ssd-fast
+provisioner: pd.csi.storage.gke.io
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: pd-ssd
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: aws-gp3-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"

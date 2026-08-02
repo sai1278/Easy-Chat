@@ -25,11 +25,11 @@ func (r *PostgresUserRepository) GetActiveUsersMetadata(ctx context.Context, use
 	}
 
 	query := `
-		SELECT u.id::text, p.pseudonym, p.avatar_id, u.status, COALESCE(pr.is_visible, FALSE)
+		SELECT u.id::text, COALESCE(p.pseudonym, u.pseudonym), COALESCE(p.avatar_id, 0), u.status, COALESCE(pr.is_visible, TRUE)
 		FROM users u
-		JOIN profiles p ON u.id = p.user_id
+		LEFT JOIN profiles p ON u.id = p.user_id
 		LEFT JOIN presence pr ON u.id = pr.user_id
-		WHERE u.id = ANY($1) AND u.status = 'ACTIVE' AND COALESCE(pr.is_visible, FALSE) = TRUE`
+		WHERE u.id = ANY($1) AND u.status = 'ACTIVE' AND COALESCE(pr.is_visible, TRUE) = TRUE`
 
 	rows, err := r.db.QueryContext(ctx, query, pq.Array(userIDs))
 	if err != nil {

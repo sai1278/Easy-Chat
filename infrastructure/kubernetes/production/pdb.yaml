@@ -4,7 +4,7 @@ metadata:
   name: gateway-service-pdb
   namespace: default
 spec:
-  minAvailable: 2
+  minAvailable: 1
   selector:
     matchLabels:
       app: gateway-service
@@ -26,7 +26,7 @@ metadata:
   name: chat-service-pdb
   namespace: default
 spec:
-  minAvailable: 2
+  minAvailable: 1
   selector:
     matchLabels:
       app: chat-service
@@ -37,7 +37,7 @@ metadata:
   name: nearby-service-pdb
   namespace: default
 spec:
-  minAvailable: 2
+  minAvailable: 1
   selector:
     matchLabels:
       app: nearby-service
@@ -52,3 +52,36 @@ spec:
   selector:
     matchLabels:
       app: presence-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: user-service-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: user-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: media-service-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: media-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: notification-service

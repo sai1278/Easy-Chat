@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Healthz Check",
+    "path": "/healthz",
+    "method": "GET",
+    "status": 200,
+    "latency": 0.3045,
+    "body": "ok"
+  },
+  {
+    "name": "CORS Preflight",
+    "path": "/api/v1/chat/rooms",
+    "method": "OPTIONS",
+    "status": 200,
+    "latency": 0.0473,
+    "body": ""
+  },
+  {
+    "name": "Register",
+    "path": "/api/v1/auth/register",
+    "method": "POST",
+    "status": 201,
+    "latency": 2.4794,
+    "body": "{\"id\":\"019f8ea3-96b4-7506-9b0e-0dceb6f88b70\",\"pseudonym\":\"user-019f8ea3\",\"device_id\":\"cert-device-1784804511\",\"role\":\"anonymous_user\",\"created_at\":\"2026-07-23T11:01:53.460334579Z\",\"updated_at\":\"2026-07-23T11:01:53.460334615Z\"}\n"
+  },
+  {
+    "name": "Login",
+    "path": "/api/v1/auth/login",
+    "method": "POST",
+    "status": 200,
+    "latency": 5.751,
+    "body": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODQ4MDU0MTQsImlhdCI6MTc4NDgwNDUxNCwiaXNzIjoiZWFzeWNoYXQiLCJyb2xlIjoiYW5vbnltb3VzX3VzZXIiLCJzaWQiOiIwMTlmOGVhMy05YzkzLTdjM2ItYjM4My0xM2JiYzM5Mzg4MGYiLCJzdWIiOiIwMTlmOGVhMy05NmI0LTc1MDYtOWIwZS0wZGNlYjZmODhiNzAifQ.V8ELkxlDonsINaPfq0rjg5aNeIk40DS55hR32bIRXB4\",\"refresh_token\":\"1d8083f9-39e3-4143-8172-050e6e6b99cd\"}\n"
+  },
+  {
+    "name": "User Profile",
+    "path": "/api/v1/user/profile",
+    "method": "GET",
+    "status": 200,
+    "latency": 0.5203,
+    "body": "{\"id\":\"019f8ea3-96b4-7506-9b0e-0dceb6f88b70\",\"pseudonym\":\"user-019f8ea3\",\"device_id\":\"cert-device-1784804511\",\"role\":\"anonymous_user\"}\n"
+  },
+  {
+    "name": "Presence Heartbeat",
+    "path": "/api/v1/presence/heartbeat",
+    "method": "POST",
+    "status": 200,
+    "latency": 0.3801,
+    "body": ""
+  },
+  {
+    "name": "Create Chat Room",
+    "path": "/api/v1/chat/rooms",
+    "method": "POST",
+    "status": 403,
+    "latency": 0.1106,
+    "body": "{\"error\":\"Forbidden: you must be one of the participants\"}"
+  }
+]

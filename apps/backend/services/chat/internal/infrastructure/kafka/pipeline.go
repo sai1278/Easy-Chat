@@ -36,8 +36,9 @@ func NewKafkaPipeline(brokers []string, topic string, groupID string, dlqTopic s
 		Brokers:  brokers,
 		GroupID:  groupID,
 		Topic:    topic,
-		MinBytes: 10e3,
+		MinBytes: 1,
 		MaxBytes: 10e6,
+		MaxWait:  10 * time.Millisecond,
 	})
 
 	var dlqWriter *kafka.Writer

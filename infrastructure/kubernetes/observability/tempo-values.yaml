@@ -1,0 +1,50 @@
+## Tempo single-binary for local Kind cluster
+
+tempo:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  retention: 168h  # 7 days
+
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    zipkin:
+      endpoint: 0.0.0.0:9411
+    jaeger:
+      protocols:
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+        grpc:
+          endpoint: 0.0.0.0:14250
+
+  querier:
+    frontend_worker:
+      frontend_address: tempo-query-frontend:9095
+
+persistence:
+  enabled: true
+  storageClassName: standard
+  size: 5Gi
+
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus

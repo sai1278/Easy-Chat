@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: load-tester
+  namespace: default
+spec:
+  restartPolicy: Never
+  containers:
+    - name: load-tester
+      image: python:3.11-alpine
+      command:
+        - python3
+        - /script/benchmark.py
+        - --url
+        - http://gateway-service.default.svc.cluster.local:8080/
+        - --concurrency
+        - "100"
+        - --duration
+        - "20"
+        - --warmup
+        - "5"
+      volumeMounts:
+        - name: script-vol
+          mountPath: /script
+  volumes:
+    - name: script-vol
+      configMap:
+        name: benchmark-script

@@ -1,0 +1,31 @@
+name: Production Endpoint Security Validation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  validate-production-endpoints:
+    name: Verify Production Endpoint Safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Check Environment Endpoint Resolution
+        run: |
+          echo "Auditing Flutter production environment resolution..."
+          grep -q "api.easychat.com" apps/frontend/lib/core/network/environment.dart || {
+            echo "ERROR: Environment.production host resolution missing!"
+            exit 1
+          }
+
+      - name: Ensure No Hardcoded Local IP Leaks in Production Target
+        run: |
+          echo "Auditing for unauthorized local development endpoints in release manifests..."
+          ! grep -rn "192.168.31.60" apps/frontend/lib/core/network/environment.dart | grep -i "production" || {
+            echo "ERROR: LAN IP leaked into production environment branch!"
+            exit 1
+          }

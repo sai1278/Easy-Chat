@@ -4,7 +4,7 @@ metadata:
   name: gateway-service
   namespace: default
 spec:
-  replicas: 3
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -32,8 +32,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 500m
               memory: 256Mi
@@ -51,11 +51,19 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8080"
             - name: GATEWAY_TOKEN_SECRET
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
                   key: gateway-token-secret
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -63,7 +71,7 @@ metadata:
   name: auth-service
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -91,8 +99,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 300m
               memory: 256Mi
@@ -110,15 +118,19 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8081"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
           volumeMounts:
             - name: rsa-secrets
               mountPath: "/var/run/secrets/nearby.com"
               readOnly: true
+            - name: tmp-volume
+              mountPath: /tmp
       volumes:
         - name: rsa-secrets
           secret:
@@ -126,6 +138,8 @@ spec:
             items:
               - key: rsa-private-key
                 path: rsa-private.pem
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -133,7 +147,7 @@ metadata:
   name: chat-service
   namespace: default
 spec:
-  replicas: 3
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -161,8 +175,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 200m
-              memory: 256Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 800m
               memory: 512Mi
@@ -180,11 +194,19 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8082"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -192,7 +214,7 @@ metadata:
   name: nearby-service
   namespace: default
 spec:
-  replicas: 3
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -220,32 +242,38 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 150m
-              memory: 256Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 600m
               memory: 512Mi
           readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8088
+            tcpSocket:
+              port: 8083
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /livez
-              port: 8088
+            tcpSocket:
+              port: 8083
             initialDelaySeconds: 15
             periodSeconds: 20
           envFrom:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8083"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -253,7 +281,7 @@ metadata:
   name: presence-service
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -281,8 +309,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 300m
               memory: 256Mi
@@ -299,6 +327,15 @@ spec:
           envFrom:
             - configMapRef:
                 name: easychat-config
+          env:
+            - name: PORT
+              value: "8084"
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -306,7 +343,7 @@ metadata:
   name: user-service
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -334,8 +371,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 300m
               memory: 256Mi
@@ -353,11 +390,19 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8085"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -365,7 +410,7 @@ metadata:
   name: media-service
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -393,8 +438,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 150m
-              memory: 256Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 500m
               memory: 512Mi
@@ -412,11 +457,13 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8086"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -427,6 +474,12 @@ spec:
                 secretKeyRef:
                   name: easychat-secrets
                   key: aws-secret-access-key
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -434,7 +487,7 @@ metadata:
   name: notification-service
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -462,8 +515,8 @@ spec:
                 - ALL
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
               cpu: 300m
               memory: 256Mi
@@ -481,8 +534,16 @@ spec:
             - configMapRef:
                 name: easychat-config
           env:
+            - name: PORT
+              value: "8087"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: easychat-secrets
-                  key: database-password
+                  key: database-url
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}

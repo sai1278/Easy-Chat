@@ -105,7 +105,7 @@ func (r *PostgresSessionRepository) Save(ctx context.Context, s *domain.Session)
 		INSERT INTO user_sessions
 		    (id, user_id, device_id, refresh_token_hash, role, is_revoked, expires_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (id) DO UPDATE
+		ON CONFLICT (created_at, id) DO UPDATE
 		SET refresh_token_hash = EXCLUDED.refresh_token_hash,
 		    is_revoked          = EXCLUDED.is_revoked,
 		    expires_at          = EXCLUDED.expires_at,

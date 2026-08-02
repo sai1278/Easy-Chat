@@ -1,0 +1,8 @@
+# Android Release Keystore Configuration Example
+# Copy this file to key.properties and replace placeholder values with production credentials.
+# DO NOT commit key.properties or key.jks to Git.
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=YOUR_KEY_ALIAS
+storeFile=key.jks
