@@ -13,6 +13,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/battery_optimizer.dart';
 import 'features/chat/data/chat_repository.dart';
 import 'features/chat/presentation/chat_controller.dart';
+import 'features/profile/data/profile_repository.dart';
 import 'features/nearby/presentation/nearby_screen.dart';
 import 'features/nearby/domain/proximity_user.dart';
 
@@ -68,6 +69,10 @@ void main() async {
     ProviderScope(
       overrides: [
         webSocketClientProvider.overrideWithValue(wsClient),
+        profileRepositoryProvider.overrideWith((ref) => ProfileRepository(
+              isar: isarService,
+              dioClient: dioClient,
+            )),
         // Override repository provider with initialized instance
         chatRepositoryProvider.overrideWith((ref) {
           final repo = ChatRepository(

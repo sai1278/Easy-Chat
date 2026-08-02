@@ -242,10 +242,15 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
         title: const Text('Nearby Spatial Discovery'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.account_circle_rounded),
+            tooltip: 'My Profile',
+            onPressed: () => context.push('/profile'),
+          ),
+          IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Refresh Peers',
             onPressed: () => _initializeLocationAndDiscovery(),
-          )
+          ),
         ],
       ),
       body: Column(

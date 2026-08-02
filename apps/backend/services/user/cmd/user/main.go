@@ -59,7 +59,7 @@ func main() {
 	}
 	log.Info("Successfully connected to PostgreSQL")
 
-	// 2. Initialize UserRepository
+	// 2. Initialize Repositories
 	userRepo := persistence.NewUserRepository(db)
 
 	// 3. Register Routes
@@ -74,6 +74,34 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte(`{"error":"missing user id header"}`))
+			return
+		}
+
+		if r.Method == http.MethodPut || r.Method == http.MethodPost {
+			var req struct {
+				DisplayName string `json:"display_name"`
+				AvatarURL   string `json:"avatar_url"`
+				Bio         string `json:"bio"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"invalid request json body"}`))
+				return
+			}
+
+			updated, err := userRepo.UpdateProfile(r.Context(), userID, req.DisplayName, req.AvatarURL, req.Bio)
+			if err != nil {
+				log.Error("Failed to update user profile", "err", err, "user_id", userID)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"error":"failed to update user profile"}`))
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(updated)
 			return
 		}
 

@@ -15,6 +15,8 @@ abstract class IsarService {
   Stream<List<MessageEntity>> watchMessages(String roomId);
   Future<void> saveMessage(MessageEntity message);
   Future<void> saveUser(UserEntity user);
+  Future<List<UserEntity>> getUsers();
+  Future<UserEntity?> getUser(String userId);
 
   static Future<IsarService> init() async {
     if (kIsWeb) {
@@ -126,6 +128,16 @@ class NativeIsarService implements IsarService {
       await _isar.userEntitys.put(user);
     });
   }
+
+  @override
+  Future<List<UserEntity>> getUsers() async {
+    return await _isar.userEntitys.where().findAll();
+  }
+
+  @override
+  Future<UserEntity?> getUser(String userId) async {
+    return await _isar.userEntitys.filter().userIdEqualTo(userId).findFirst();
+  }
 }
 
 /// Web-compatible Storage implementation avoiding Isar 3.x web runtime exception.
@@ -178,5 +190,15 @@ class WebStorageService implements IsarService {
   @override
   Future<void> saveUser(UserEntity user) async {
     _users[user.userId] = user;
+  }
+
+  @override
+  Future<List<UserEntity>> getUsers() async {
+    return _users.values.toList();
+  }
+
+  @override
+  Future<UserEntity?> getUser(String userId) async {
+    return _users[userId];
   }
 }
