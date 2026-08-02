@@ -76,9 +76,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register New Device Profile'),
+        title: const Text('Register Nearby Device'),
         centerTitle: true,
       ),
       body: Center(
@@ -90,8 +92,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.person_add_alt_1, size: 64, color: Colors.teal),
-                const SizedBox(height: 16),
+                Hero(
+                  tag: 'app_logo',
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.person_add_alt_1_rounded, size: 54, color: colorScheme.onPrimaryContainer),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   'Onboard Nearby Device',
                   textAlign: TextAlign.center,
@@ -103,7 +115,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Text(
                   'HWID: ${_deviceId ?? "Loading..."}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
@@ -112,8 +124,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Choose Session Password',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().length < 6) {
@@ -129,8 +140,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Confirm Password',
-                    prefixIcon: Icon(Icons.lock_reset),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_reset_rounded),
                   ),
                   validator: (value) {
                     if (value != _passwordController.text) {
@@ -140,14 +150,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
+                FilledButton(
                   key: const Key('register_submit_button'),
                   onPressed: _isLoading ? null : _submitRegister,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                  ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,

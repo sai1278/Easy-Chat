@@ -13,12 +13,19 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-subprojects {
-    afterEvaluate { p ->
+subprojects { p ->
+    def assignNamespace = {
         if (p.hasProperty("android")) {
             if (p.android.namespace == null || p.android.namespace.isEmpty()) {
                 p.android.namespace = "com.nearbyconnect.dependency." + p.name.replaceAll("[^a-zA-Z0-9_]", "_")
             }
+        }
+    }
+    if (p.state.executed) {
+        assignNamespace()
+    } else {
+        p.afterEvaluate {
+            assignNamespace()
         }
     }
 }

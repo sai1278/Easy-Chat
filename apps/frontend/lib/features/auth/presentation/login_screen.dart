@@ -74,9 +74,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Easy Chat — Authentication'),
+        title: const Text('Nearby Connect Authentication'),
         centerTitle: true,
       ),
       body: Center(
@@ -88,8 +90,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.security, size: 64, color: Colors.teal),
-                const SizedBox(height: 16),
+                Hero(
+                  tag: 'app_logo',
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.security_rounded, size: 54, color: colorScheme.onPrimaryContainer),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   'Nearby Connect Session',
                   textAlign: TextAlign.center,
@@ -101,7 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   'Device HWID: ${_deviceId ?? "Loading..."}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
@@ -110,8 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().length < 6) {
@@ -121,14 +132,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
+                FilledButton(
                   key: const Key('login_submit_button'),
                   onPressed: _isLoading ? null : _submitLogin,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                  ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
