@@ -4,6 +4,8 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/nearby/presentation/nearby_screen.dart';
+import '../../features/onboarding/presentation/splash_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../network/dio_client.dart';
@@ -16,16 +18,16 @@ class AppRouter {
   );
 
   static final GoRouter router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) async {
       final isAuth = await authRepo.isAuthenticated();
       final loc = state.matchedLocation;
-      final isAuthRoute = loc == '/login' || loc == '/register';
+      final isBypassRoute = loc == '/splash' || loc == '/onboarding' || loc == '/login' || loc == '/register';
 
-      if (!isAuth && !isAuthRoute) {
+      if (!isAuth && !isBypassRoute) {
         return '/login';
       }
-      if (isAuth && isAuthRoute) {
+      if (isAuth && (loc == '/login' || loc == '/register')) {
         return '/nearby';
       }
       return null;
@@ -33,7 +35,15 @@ class AppRouter {
     routes: [
       GoRoute(
         path: '/',
-        redirect: (context, state) => '/nearby',
+        redirect: (context, state) => '/splash',
+      ),
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/nearby',
