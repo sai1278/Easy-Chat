@@ -212,7 +212,7 @@ void main() {
 
       expect(
         () async => await authRepository.login('Password123!'),
-        throwsA(predicate((e) => e.toString().contains('Unable to connect to Gateway'))),
+        throwsA(predicate((e) => e.toString().contains('Connection Failed'))),
       );
     });
   });

@@ -1,8 +1,113 @@
+import 'dart:developer' as dev;
+import 'package:flutter/foundation.dart';
+
 enum Environment {
-  emulator,
+  local,
   usb,
   wifi,
   production,
+}
+
+class EnvironmentService {
+  static ApiConfig? _cachedConfig;
+
+  static ApiConfig get config {
+    _cachedConfig ??= _resolveConfig();
+    return _cachedConfig!;
+  }
+
+  static ApiConfig _resolveConfig() {
+    const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+    const wsBaseUrl = String.fromEnvironment('WS_BASE_URL');
+    const envStr = String.fromEnvironment('APP_ENV');
+    const customHost = String.fromEnvironment('HOST_IP', defaultValue: '192.168.31.60');
+    const portStr = String.fromEnvironment('GATEWAY_PORT');
+
+    Environment env;
+
+    if (envStr.isEmpty) {
+      if (kReleaseMode) {
+        throw StateError(
+          'CRITICAL BUILD ERROR: APP_ENV compile-time flag is required for release builds.\n'
+          'Example: flutter build apk --dart-define=APP_ENV=production (or wifi|usb|local)',
+        );
+      } else {
+        dev.log(
+          '====================================================\n'
+          ' [WARNING] APP_ENV compile-time flag was NOT specified!\n'
+          ' Defaulting to Environment.wifi (HOST: 192.168.31.60:8090).\n'
+          ' To specify environment, run with:\n'
+          '   flutter run --dart-define=APP_ENV=wifi|usb|local|production\n'
+          '====================================================',
+          name: 'EnvironmentConfig',
+        );
+        env = Environment.wifi;
+      }
+    } else {
+      switch (envStr.toLowerCase()) {
+        case 'local':
+        case 'emulator':
+          env = Environment.local;
+          break;
+        case 'usb':
+          env = Environment.usb;
+          break;
+        case 'wifi':
+        case 'lan':
+          env = Environment.wifi;
+          break;
+        case 'production':
+        case 'prod':
+          env = Environment.production;
+          break;
+        default:
+          throw StateError('CRITICAL: Invalid APP_ENV value "$envStr". Valid options are: local, usb, wifi, production');
+      }
+    }
+
+    final int defaultPort;
+    switch (env) {
+      case Environment.local:
+        defaultPort = 8090;
+        break;
+      case Environment.usb:
+        defaultPort = 18080;
+        break;
+      case Environment.wifi:
+        defaultPort = 8090;
+        break;
+      case Environment.production:
+        defaultPort = 443;
+        break;
+    }
+
+    final parsedPort = int.tryParse(portStr) ?? defaultPort;
+
+    return ApiConfig(
+      environment: env,
+      customHost: customHost,
+      gatewayPort: parsedPort,
+      overrideApiBaseUrl: apiBaseUrl.isNotEmpty ? apiBaseUrl : null,
+      overrideWsBaseUrl: wsBaseUrl.isNotEmpty ? wsBaseUrl : null,
+    );
+  }
+
+  static void printStartupBanner() {
+    final cfg = config;
+    const mode = kReleaseMode ? 'Release' : (kProfileMode ? 'Profile' : 'Debug');
+    final banner = '''
+
+====================================================
+Nearby Connect Application Boot
+Build Mode  : $mode
+Environment : ${cfg.environment.name.toUpperCase()}
+API Base    : ${cfg.baseUrl}
+WebSocket   : ${cfg.wsUrl}
+====================================================
+''';
+    dev.log(banner, name: 'Bootstrap');
+    debugPrint(banner);
+  }
 }
 
 class ApiConfig {
@@ -21,47 +126,12 @@ class ApiConfig {
   });
 
   factory ApiConfig.fromEnvironment() {
-    const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
-    const wsBaseUrl = String.fromEnvironment('WS_BASE_URL');
-    const envStr = String.fromEnvironment('APP_ENV', defaultValue: 'usb');
-    const customHost = String.fromEnvironment('HOST_IP', defaultValue: '192.168.31.60');
-    const portStr = String.fromEnvironment('GATEWAY_PORT');
-    
-    // In USB mode default to 18080 (ADB reverse), in LAN/WiFi mode default to 8090 (Gateway direct port)
-    final isWifi = envStr.toLowerCase() == 'wifi' || envStr.toLowerCase() == 'lan';
-    final defaultPort = isWifi ? 8090 : 18080;
-    final parsedPort = int.tryParse(portStr) ?? defaultPort;
-
-    Environment env;
-    switch (envStr.toLowerCase()) {
-      case 'emulator':
-        env = Environment.emulator;
-        break;
-      case 'wifi':
-      case 'lan':
-        env = Environment.wifi;
-        break;
-      case 'production':
-        env = Environment.production;
-        break;
-      case 'usb':
-      default:
-        env = Environment.usb;
-        break;
-    }
-
-    return ApiConfig(
-      environment: env,
-      customHost: customHost,
-      gatewayPort: parsedPort,
-      overrideApiBaseUrl: apiBaseUrl.isNotEmpty ? apiBaseUrl : null,
-      overrideWsBaseUrl: wsBaseUrl.isNotEmpty ? wsBaseUrl : null,
-    );
+    return EnvironmentService.config;
   }
 
   String get host {
     switch (environment) {
-      case Environment.emulator:
+      case Environment.local:
         return '10.0.2.2';
       case Environment.usb:
         return '127.0.0.1';
@@ -73,7 +143,7 @@ class ApiConfig {
   }
 
   String get httpScheme => environment == Environment.production ? 'https' : 'http';
-  String get wsScheme => environment == Environment.production ? 'wss' : 'ws';
+  String get wsScheme => environment == Environment.production ? 'wss' : 'wss';
 
   String get baseUrl {
     if (overrideApiBaseUrl != null && overrideApiBaseUrl!.isNotEmpty) {

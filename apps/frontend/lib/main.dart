@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -33,9 +32,8 @@ final incomingMessageStreamProvider = StreamProvider.autoDispose<MessageEntity?>
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final config = ApiConfig.fromEnvironment();
-  dev.log('[NetworkConfig] Effective API Base URL: ${config.baseUrl}', name: 'NetworkConfig');
-  dev.log('[NetworkConfig] Effective WebSocket URL: ${config.wsUrl}', name: 'NetworkConfig');
+  // Print startup banner with build mode & environment details
+  EnvironmentService.printStartupBanner();
 
   // 1. Initialize Isar offline-first local database cache
   final isarService = await IsarService.init();

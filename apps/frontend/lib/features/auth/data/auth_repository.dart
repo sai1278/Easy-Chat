@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/environment.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
@@ -167,7 +168,18 @@ class AuthRepository {
       return Exception('Connection timeout. Please check your connection to the API Gateway.');
     }
     if (e.type == DioExceptionType.connectionError) {
-      return Exception('Unable to connect to Gateway at http://127.0.0.1:18080 (Connection Refused). Ensure Gateway is running on port 8090 and ADB reverse is active.');
+      final cfg = ApiConfig.fromEnvironment();
+      return Exception(
+        'Current Environment : ${cfg.environment.name.toUpperCase()}\n'
+        'Target API : ${cfg.baseUrl}\n'
+        'Connection Failed\n'
+        'Reason : Connection Refused\n\n'
+        'Suggested Actions:\n'
+        '• Verify backend containers are running (`docker ps`)\n'
+        '• Verify Gateway is listening on port ${cfg.gatewayPort}\n'
+        '• Verify Wi-Fi network connectivity (${cfg.host})\n'
+        '• Verify host IP and port settings in --dart-define'
+      );
     }
     if (e.response != null) {
       final status = e.response!.statusCode;
