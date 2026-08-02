@@ -379,19 +379,21 @@ class _RadarHeaderBanner extends StatelessWidget {
               child: AnimatedBuilder(
                 animation: animationController,
                 builder: (context, child) {
-                  return CustomPaint(
-                    painter: _RadarRipplePainter(
-                      progress: animationController.value,
-                      color: colorScheme.primary,
-                    ),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          shape: BoxShape.circle,
+                  return RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _RadarRipplePainter(
+                        progress: animationController.value,
+                        color: colorScheme.primary,
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.wifi_tethering_rounded, color: colorScheme.onPrimaryContainer, size: 24),
                         ),
-                        child: Icon(Icons.wifi_tethering_rounded, color: colorScheme.onPrimaryContainer, size: 24),
                       ),
                     ),
                   );

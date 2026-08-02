@@ -591,8 +591,9 @@ class _TypingDotsIndicatorState extends State<_TypingDotsIndicator> with SingleT
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
       builder: (context, child) {
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -610,6 +611,7 @@ class _TypingDotsIndicatorState extends State<_TypingDotsIndicator> with SingleT
           }),
         );
       },
+    ),
     );
   }
 }
