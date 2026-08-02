@@ -5,6 +5,7 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/nearby/presentation/nearby_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
 import '../network/dio_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -41,6 +42,10 @@ class AppRouter {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
         path: '/login',

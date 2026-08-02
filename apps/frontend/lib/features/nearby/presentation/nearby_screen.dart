@@ -254,6 +254,11 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
             onPressed: () => context.push('/profile'),
           ),
           IconButton(
+            icon: const Icon(Icons.settings_rounded),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+          IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Refresh Peers',
             onPressed: () => _initializeLocationAndDiscovery(),
