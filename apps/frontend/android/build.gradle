@@ -19,6 +19,8 @@ subprojects { p ->
             if (p.android.namespace == null || p.android.namespace.isEmpty()) {
                 if (p.name == "record") {
                     p.android.namespace = "com.llfbandit.record"
+                } else if (p.name == "isar_flutter_libs") {
+                    p.android.namespace = "dev.isar.isar_flutter_libs"
                 } else {
                     p.android.namespace = "com.nearbyconnect.dependency." + p.name.replaceAll("[^a-zA-Z0-9_]", "_")
                 }
@@ -30,6 +32,18 @@ subprojects { p ->
     } else {
         p.afterEvaluate {
             assignNamespace()
+        }
+    }
+
+    if (p.name == "isar_flutter_libs") {
+        p.afterEvaluate {
+            def manifestFile = p.file("src/main/AndroidManifest.xml")
+            if (manifestFile.exists()) {
+                def manifestText = manifestFile.text
+                if (manifestText.contains('package="dev.isar.isar_flutter_libs"')) {
+                    manifestFile.text = manifestText.replace('package="dev.isar.isar_flutter_libs"', '')
+                }
+            }
         }
     }
 }
