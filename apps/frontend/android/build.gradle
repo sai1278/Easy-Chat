@@ -17,7 +17,11 @@ subprojects { p ->
     def assignNamespace = {
         if (p.hasProperty("android")) {
             if (p.android.namespace == null || p.android.namespace.isEmpty()) {
-                p.android.namespace = "com.nearbyconnect.dependency." + p.name.replaceAll("[^a-zA-Z0-9_]", "_")
+                if (p.name == "record") {
+                    p.android.namespace = "com.llfbandit.record"
+                } else {
+                    p.android.namespace = "com.nearbyconnect.dependency." + p.name.replaceAll("[^a-zA-Z0-9_]", "_")
+                }
             }
         }
     }

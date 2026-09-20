@@ -20,24 +20,24 @@ class EnvironmentService {
     const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
     const wsBaseUrl = String.fromEnvironment('WS_BASE_URL');
     const envStr = String.fromEnvironment('APP_ENV');
-    const customHost = String.fromEnvironment('HOST_IP', defaultValue: '192.168.31.60');
+    const customHost = String.fromEnvironment('HOST_IP', defaultValue: '192.168.1.2');
     const portStr = String.fromEnvironment('GATEWAY_PORT');
 
     Environment env;
 
     if (envStr.isEmpty) {
       if (kReleaseMode) {
-        throw StateError(
-          'CRITICAL BUILD ERROR: APP_ENV compile-time flag is required for release builds.\n'
-          'Example: flutter build apk --dart-define=APP_ENV=production (or wifi|usb|local)',
+        dev.log(
+          '====================================================\n'
+          ' [INFO] APP_ENV compile-time flag not specified in Release build. Defaulting to Environment.production (HOST: api.easychat.com).\n'
+          '====================================================',
+          name: 'EnvironmentConfig',
         );
+        env = Environment.production;
       } else {
         dev.log(
           '====================================================\n'
-          ' [WARNING] APP_ENV compile-time flag was NOT specified!\n'
-          ' Defaulting to Environment.wifi (HOST: 192.168.31.60:8090).\n'
-          ' To specify environment, run with:\n'
-          '   flutter run --dart-define=APP_ENV=wifi|usb|local|production\n'
+          ' [INFO] APP_ENV compile-time flag not specified. Defaulting to Environment.wifi (HOST: 192.168.1.2:8090).\n'
           '====================================================',
           name: 'EnvironmentConfig',
         );
@@ -119,7 +119,7 @@ class ApiConfig {
 
   const ApiConfig({
     required this.environment,
-    this.customHost = '192.168.31.60',
+    this.customHost = '192.168.1.2',
     this.gatewayPort = 8090,
     this.overrideApiBaseUrl,
     this.overrideWsBaseUrl,
@@ -143,7 +143,7 @@ class ApiConfig {
   }
 
   String get httpScheme => environment == Environment.production ? 'https' : 'http';
-  String get wsScheme => environment == Environment.production ? 'wss' : 'wss';
+  String get wsScheme => environment == Environment.production ? 'wss' : 'ws';
 
   String get baseUrl {
     if (overrideApiBaseUrl != null && overrideApiBaseUrl!.isNotEmpty) {

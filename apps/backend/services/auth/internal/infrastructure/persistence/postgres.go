@@ -24,22 +24,22 @@ func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
 
 func (r *PostgresUserRepository) Create(ctx context.Context, u *domain.User) error {
 	query := `
-		INSERT INTO users (id, pseudonym, device_id, password_hash, role, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		INSERT INTO users (id, pseudonym, display_name, device_id, password_hash, role, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	_, err := r.db.ExecContext(ctx, query,
-		u.ID, u.Pseudonym, u.DeviceID, u.PasswordHash,
+		u.ID, u.Pseudonym, u.DisplayName, u.DeviceID, u.PasswordHash,
 		string(u.Role), u.CreatedAt, u.UpdatedAt,
 	)
 	return err
 }
 
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	query := `SELECT id, pseudonym, device_id, password_hash, role, created_at, updated_at
+	query := `SELECT id, pseudonym, COALESCE(display_name, ''), device_id, password_hash, role, created_at, updated_at
 	          FROM users WHERE id = $1`
 	var u domain.User
 	var roleStr string
 	err := r.db.QueryRowContext(ctx, query, id).
-		Scan(&u.ID, &u.Pseudonym, &u.DeviceID, &u.PasswordHash, &roleStr, &u.CreatedAt, &u.UpdatedAt)
+		Scan(&u.ID, &u.Pseudonym, &u.DisplayName, &u.DeviceID, &u.PasswordHash, &roleStr, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -51,12 +51,12 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domai
 }
 
 func (r *PostgresUserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*domain.User, error) {
-	query := `SELECT id, pseudonym, device_id, password_hash, role, created_at, updated_at
+	query := `SELECT id, pseudonym, COALESCE(display_name, ''), device_id, password_hash, role, created_at, updated_at
 	          FROM users WHERE device_id = $1`
 	var u domain.User
 	var roleStr string
 	err := r.db.QueryRowContext(ctx, query, deviceID).
-		Scan(&u.ID, &u.Pseudonym, &u.DeviceID, &u.PasswordHash, &roleStr, &u.CreatedAt, &u.UpdatedAt)
+		Scan(&u.ID, &u.Pseudonym, &u.DisplayName, &u.DeviceID, &u.PasswordHash, &roleStr, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil

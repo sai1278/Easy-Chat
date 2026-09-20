@@ -1,0 +1,274 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: easychat-prod-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/www/certbot
+    depends_on:
+      - gateway
+    networks:
+      - easychat_prod_net
+
+  certbot:
+    image: certbot/certbot
+    container_name: easychat-prod-certbot
+    volumes:
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - easychat_prod_net
+
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: easychat-prod-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nearby_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nearby_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-nearby_connect}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nearby_user -d nearby_connect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - easychat_prod_net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: easychat-prod-redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - easychat_prod_net
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: easychat-prod-kafka
+    restart: always
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms256M"
+    volumes:
+      - kafka_prod_data:/tmp/kraft-combined-logs
+    networks:
+      - easychat_prod_net
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: gateway
+    container_name: easychat-prod-gateway
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8090
+      DISABLE_TLS: "true" # TLS terminated by Nginx reverse proxy
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_HOSTS: http://auth:8081
+      USER_HOSTS: http://user:8085
+      CHAT_HOSTS: http://chat:8082
+      NEARBY_HOSTS: http://nearby:8088
+      PRES_HOSTS: http://presence:8084
+      MEDIA_HOSTS: http://media:8086
+      COMPLIANCE_HOSTS: http://notification:8087
+    depends_on:
+      - auth
+      - user
+      - chat
+      - nearby
+      - media
+    networks:
+      - easychat_prod_net
+
+  auth:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: auth
+    container_name: easychat-prod-auth
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8081
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - easychat_prod_net
+
+  chat:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: chat
+    container_name: easychat-prod-chat
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8082
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - easychat_prod_net
+
+  user:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: user
+    container_name: easychat-prod-user
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8085
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - easychat_prod_net
+
+  nearby:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: nearby
+    container_name: easychat-prod-nearby
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8088
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - easychat_prod_net
+
+  presence:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: presence
+    container_name: easychat-prod-presence
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8084
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - easychat_prod_net
+
+  media:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: media
+    container_name: easychat-prod-media
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8086
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      S3_BUCKET: ${S3_BUCKET:-easychat-media-production-storage}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - easychat_prod_net
+
+  notification:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.backend
+      args:
+        SERVICE_NAME: notification
+    container_name: easychat-prod-notification
+    restart: always
+    environment:
+      APP_ENV: production
+      PORT: 8087
+      DATABASE_URL: postgres://${POSTGRES_USER:-nearby_user}:${POSTGRES_PASSWORD:-nearby_secure_pass}@postgres:5432/${POSTGRES_DB:-nearby_connect}?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - easychat_prod_net
+
+networks:
+  easychat_prod_net:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  kafka_prod_data:
+  certbot_etc:
+  certbot_var:

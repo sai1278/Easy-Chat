@@ -1,8 +1,14 @@
+import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'environment.dart';
+
+final dioClientProvider = Provider<DioClient>((ref) {
+  return DioClient();
+});
 
 class CacheEntry {
   final dynamic data;
@@ -88,8 +94,7 @@ class HttpCache {
 
 class DioClient {
   late final Dio _dio;
-  String? _cachedToken;
-  bool _tokenLoaded = false;
+  static String? _globalCachedToken;
   late final HttpCache _responseCache;
 
   DioClient({
@@ -117,19 +122,39 @@ class DioClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          final swReq = Stopwatch()..start();
+          
           // 1. Inject Request correlation ID for tracing
           final requestId = const Uuid().v4();
           options.headers['X-Request-ID'] = requestId;
 
-          // 2. Inject JWT Authorization header from cached in-memory token
-          if (!_tokenLoaded) {
+          // 2. Inject JWT Authorization header - dynamically load from SecureStorage if not cached
+          if (_globalCachedToken == null || _globalCachedToken!.isEmpty) {
             const secureStorage = FlutterSecureStorage();
-            _cachedToken = await secureStorage.read(key: 'jwt_access_token');
-            _tokenLoaded = true;
+            _globalCachedToken = await secureStorage.read(key: 'jwt_access_token');
           }
-          if (_cachedToken != null) {
-            options.headers['Authorization'] = 'Bearer $_cachedToken';
+
+          if (_globalCachedToken != null && _globalCachedToken!.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $_globalCachedToken';
+            dev.log(
+              '[DIO][AUTH_HEADER_ATTACHED] Path: ${options.path} | Authorization: Bearer [REDACTED] (Total len: ${_globalCachedToken!.length})',
+              name: 'AuthTrace',
+            );
+          } else {
+            dev.log(
+              '[DIO][AUTH_HEADER_MISSING] Path: ${options.path} | No token available in memory or FlutterSecureStorage',
+              name: 'AuthTrace',
+            );
           }
+
+          final safeHeaders = Map<String, dynamic>.from(options.headers);
+          if (safeHeaders.containsKey('Authorization')) {
+            safeHeaders['Authorization'] = '[REDACTED]';
+          }
+          dev.log(
+            '[DIO][STEP-01] Outgoing Request: ${options.method} ${options.baseUrl}${options.path} | Headers: $safeHeaders',
+            name: 'AuthTrace',
+          );
 
           // 3. Inject ETag cache validation header for GET requests
           if (options.method == 'GET') {
@@ -139,11 +164,21 @@ class DioClient {
             }
           }
 
+          swReq.stop();
+          dev.log(
+            '[DIO][STEP-02] onRequest Interceptor completed - Duration: ${swReq.elapsedMilliseconds} ms',
+            name: 'AuthTrace',
+          );
           return handler.next(options);
         },
         onResponse: (response, handler) {
           final requestMethod = response.requestOptions.method;
           final path = response.requestOptions.path;
+
+          dev.log(
+            '[DIO][STEP-03] Incoming Response: ${response.statusCode} for $requestMethod $path - Data: ${response.data}',
+            name: 'AuthTrace',
+          );
 
           // Handle HTTP 304 Not Modified
           if (response.statusCode == 304) {
@@ -171,11 +206,30 @@ class DioClient {
           return handler.next(response);
         },
         onError: (DioException e, handler) async {
+          dev.log(
+            '[DIO][STEP-04-ERR] Exception: ${e.type} for ${e.requestOptions.path} - Status: ${e.response?.statusCode} Msg: ${e.message}',
+            name: 'AuthTrace',
+          );
+
+          // If 401 occurs, invalidate memory token cache so next request re-reads storage
+          if (e.response?.statusCode == 401) {
+            _globalCachedToken = null;
+          }
+
           // Identify transient network or server errors
-          final isTransient = e.type == DioExceptionType.connectionTimeout ||
-              e.type == DioExceptionType.sendTimeout ||
-              e.type == DioExceptionType.receiveTimeout ||
-              (e.response != null && e.response!.statusCode! >= 500);
+          // Strictly restrict automatic retry to idempotent HTTP methods (GET, HEAD, OPTIONS, PUT, DELETE)
+          // Non-idempotent operations (such as POST) MUST NOT be retried automatically to prevent duplicate state
+          final isIdempotent = e.requestOptions.method == 'GET' ||
+              e.requestOptions.method == 'HEAD' ||
+              e.requestOptions.method == 'OPTIONS' ||
+              e.requestOptions.method == 'PUT' ||
+              e.requestOptions.method == 'DELETE';
+
+          final isTransient = (e.type == DioExceptionType.connectionTimeout ||
+                  e.type == DioExceptionType.sendTimeout ||
+                  e.type == DioExceptionType.receiveTimeout ||
+                  (e.response != null && e.response!.statusCode! >= 500)) &&
+              isIdempotent;
 
           if (isTransient) {
             try {
@@ -224,17 +278,30 @@ class DioClient {
     }
   }
 
-  // Update token inside cached memory and FlutterSecureStorage
+  // Update token inside cached memory and FlutterSecureStorage with read-after-write verification
   Future<void> updateToken(String? token) async {
-    _cachedToken = token;
-    _tokenLoaded = true;
+    _globalCachedToken = token;
     const secureStorage = FlutterSecureStorage();
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       await secureStorage.write(key: 'jwt_access_token', value: token);
+      final readBack = await secureStorage.read(key: 'jwt_access_token');
+      if (readBack != token) {
+        throw Exception(
+          'FlutterSecureStorage read-after-write verification failed for key: jwt_access_token',
+        );
+      }
+      dev.log(
+        '[DIO][UPDATE_TOKEN_SUCCESS] Token persisted and verified successfully (length: ${token.length})',
+        name: 'AuthTrace',
+      );
     } else {
       await secureStorage.delete(key: 'jwt_access_token');
+      dev.log('[DIO][UPDATE_TOKEN_CLEAR] Token cleared from memory and storage', name: 'AuthTrace');
     }
   }
 
+  String? get cachedToken => _globalCachedToken;
+
   Dio get dio => _dio;
 }
+

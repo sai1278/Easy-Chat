@@ -2,6 +2,7 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme/clay_design_system.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -15,19 +16,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  String? _deviceId;
 
   @override
-  void initState() {
-    super.initState();
-    _loadDeviceId();
-  }
-
-  Future<void> _loadDeviceId() async {
-    final devId = await ref.read(authRepositoryProvider).getDeviceId();
-    if (mounted) {
-      setState(() => _deviceId = devId);
-    }
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
   }
 
   Future<void> _submitLogin() async {
@@ -38,16 +31,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authRepo = ref.read(authRepositoryProvider);
       dev.log('[LoginScreen] User clicked Log In. Submitting credentials...', name: 'AuthUI');
-      
+
       await authRepo.login(_passwordController.text.trim());
 
-      // Invalidate Auth State to notify router
       ref.invalidate(authStateProvider);
 
       if (mounted) {
         dev.log('[LoginScreen] Login succeeded. Navigating to /nearby', name: 'AuthUI');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful! Redirecting...')),
+          const SnackBar(
+            content: Text('Welcome back!'),
+            backgroundColor: ClayColors.accent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
         context.go('/nearby');
       }
@@ -57,7 +53,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: ClayColors.danger,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -67,88 +64,97 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
-  void dispose() {
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nearby Connect Authentication'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Hero(
-                  tag: 'app_logo',
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
+      backgroundColor: ClayColors.canvas,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo container
+                  Container(
+                    width: 88,
+                    height: 88,
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
+                      color: ClayColors.card,
                       shape: BoxShape.circle,
+                      boxShadow: ClayShadows.cardElevated,
+                      border: Border.all(color: ClayColors.borderSoft, width: 1.2),
                     ),
-                    child: Icon(Icons.security_rounded, size: 54, color: colorScheme.onPrimaryContainer),
+                    child: const Center(
+                      child: EasyChatLogoMark(size: 48),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Nearby Connect Session',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Device HWID: ${_deviceId ?? "Loading..."}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  key: const Key('login_password_field'),
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Easy Chat',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: ClayColors.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  key: const Key('login_submit_button'),
-                  onPressed: _isLoading ? null : _submitLogin,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('LOG IN', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => context.go('/register'),
-                  child: const Text("Don't have a profile? Register Device"),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Sign in to start discovering nearby peers',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ClayColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Clay Card for form inputs
+                  ClayCard(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextFormField(
+                          key: const Key('login_password_field'),
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            hintText: 'Enter your session password',
+                            prefixIcon: Icon(Icons.lock_outline_rounded, color: ClayColors.textSecondary),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        ClayButton(
+                          key: const Key('login_submit_button'),
+                          label: _isLoading ? 'Signing in...' : 'Sign In',
+                          icon: Icons.login_rounded,
+                          isLoading: _isLoading,
+                          onPressed: _isLoading ? null : _submitLogin,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  TextButton(
+                    onPressed: () => context.go('/register'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: ClayColors.textSecondary,
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    child: const Text("New to Easy Chat? Create Profile"),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

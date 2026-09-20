@@ -3,9 +3,11 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/lib/pq"
 	"nearby/backend/services/nearby/internal/domain"
+	"nearby/backend/shared/geo"
 )
 
 // PostgresUserRepository implements domain.UserRepository.
@@ -25,7 +27,14 @@ func (r *PostgresUserRepository) GetActiveUsersMetadata(ctx context.Context, use
 	}
 
 	query := `
-		SELECT u.id::text, COALESCE(p.pseudonym, u.pseudonym), COALESCE(p.avatar_id, 0), u.status, COALESCE(pr.is_visible, TRUE)
+		SELECT u.id::text, 
+		       COALESCE(p.pseudonym, u.pseudonym), 
+		       COALESCE(u.display_name, ''), 
+		       COALESCE(u.avatar_url, ''), 
+		       COALESCE(u.bio, ''), 
+		       COALESCE(p.avatar_id, 0), 
+		       u.status, 
+		       COALESCE(pr.is_visible, TRUE)
 		FROM users u
 		LEFT JOIN profiles p ON u.id = p.user_id
 		LEFT JOIN presence pr ON u.id = pr.user_id
@@ -40,7 +49,7 @@ func (r *PostgresUserRepository) GetActiveUsersMetadata(ctx context.Context, use
 	metadataMap := make(map[string]*domain.UserMetadata)
 	for rows.Next() {
 		var m domain.UserMetadata
-		if err := rows.Scan(&m.UserID, &m.Pseudonym, &m.AvatarID, &m.Status, &m.IsVisible); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Pseudonym, &m.DisplayName, &m.AvatarURL, &m.Bio, &m.AvatarID, &m.Status, &m.IsVisible); err != nil {
 			return nil, err
 		}
 		metadataMap[m.UserID] = &m
@@ -73,3 +82,45 @@ func (r *PostgresUserRepository) GetBlockFilter(ctx context.Context, userID stri
 
 	return blockMap, nil
 }
+
+// UpsertUserLocation persists the authoritative user location in the PostgreSQL user_locations table.
+func (r *PostgresUserRepository) UpsertUserLocation(ctx context.Context, userID string, lat, lon float64, accuracy float64, updatedAt ...time.Time) error {
+	updateTime := time.Now().UTC()
+	if len(updatedAt) > 0 && !updatedAt[0].IsZero() {
+		updateTime = updatedAt[0].UTC()
+	}
+
+	query := `
+		INSERT INTO user_locations (user_id, latitude, longitude, accuracy_meters, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id) DO UPDATE
+		SET latitude = EXCLUDED.latitude,
+		    longitude = EXCLUDED.longitude,
+		    accuracy_meters = EXCLUDED.accuracy_meters,
+		    updated_at = EXCLUDED.updated_at`
+
+	_, err := r.db.ExecContext(ctx, query, userID, lat, lon, accuracy, updateTime)
+	return err
+}
+
+// GetUserLocation retrieves authoritative user location from the PostgreSQL user_locations table.
+func (r *PostgresUserRepository) GetUserLocation(ctx context.Context, userID string) (*geo.LocationData, error) {
+	query := `
+		SELECT latitude, longitude, accuracy_meters, updated_at
+		FROM user_locations
+		WHERE user_id = $1`
+
+	var loc geo.LocationData
+	loc.UserID = userID
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&loc.Latitude,
+		&loc.Longitude,
+		&loc.AccuracyMeters,
+		&loc.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &loc, nil
+}
+

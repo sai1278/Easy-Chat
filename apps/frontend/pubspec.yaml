@@ -27,6 +27,9 @@ dependencies:
   flutter_secure_storage: ^8.0.0
   http: ^0.13.6
   crypto: ^3.0.2
+  cryptography: ^2.9.0
+  image_picker: ^1.1.2
+  record: ^4.4.4
 
 dev_dependencies:
   flutter_test:
@@ -38,6 +41,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
 
 dependency_overrides:
   reactive_ble_platform_interface: 5.4.1

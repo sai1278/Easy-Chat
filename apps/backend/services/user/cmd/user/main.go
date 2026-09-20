@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
+	"nearby/backend/services/user/internal/infrastructure/events"
 	"nearby/backend/services/user/internal/infrastructure/persistence"
 	sharedconfig "nearby/backend/shared/config"
 	"nearby/backend/shared/logger"
@@ -57,12 +60,26 @@ func main() {
 		log.Error("Failed to ping Postgres database", "err", err)
 		os.Exit(1)
 	}
-	log.Info("Successfully connected to PostgreSQL")
+	// 2. Initialize Redis Connection
+	var rdb *redis.Client
+	redisURL := cfg.RedisURL
+	if redisURL == "" {
+		redisURL = "localhost:6379"
+	}
+	if opts, err := redis.ParseURL(redisURL); err == nil {
+		rdb = redis.NewClient(opts)
+	} else {
+		rdb = redis.NewClient(&redis.Options{Addr: redisURL})
+	}
+	defer rdb.Close()
+	log.Info("Successfully connected to Redis in User Service")
 
-	// 2. Initialize Repositories
+	eventPublisher := events.NewRedisEventPublisher(rdb)
+
+	// 3. Initialize Repositories
 	userRepo := persistence.NewUserRepository(db)
 
-	// 3. Register Routes
+	// 4. Register Routes
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -80,6 +97,7 @@ func main() {
 		if r.Method == http.MethodPut || r.Method == http.MethodPost {
 			var req struct {
 				DisplayName string `json:"display_name"`
+				Username    string `json:"username"`
 				AvatarURL   string `json:"avatar_url"`
 				Bio         string `json:"bio"`
 			}
@@ -90,7 +108,7 @@ func main() {
 				return
 			}
 
-			updated, err := userRepo.UpdateProfile(r.Context(), userID, req.DisplayName, req.AvatarURL, req.Bio)
+			updated, err := userRepo.UpdateProfile(r.Context(), userID, req.DisplayName, req.Username, req.AvatarURL, req.Bio)
 			if err != nil {
 				log.Error("Failed to update user profile", "err", err, "user_id", userID)
 				w.Header().Set("Content-Type", "application/json")
@@ -98,6 +116,24 @@ func main() {
 				_, _ = w.Write([]byte(`{"error":"failed to update user profile"}`))
 				return
 			}
+
+			// Publish ProfileUpdatedEvent asynchronously
+			go func(u *persistence.UserProfile) {
+				pubErr := eventPublisher.PublishProfileUpdated(context.Background(), &events.ProfileUpdatedEvent{
+					Type:        "PROFILE_UPDATED",
+					UserID:      u.ID,
+					Username:    u.Username,
+					DisplayName: u.DisplayName,
+					AvatarURL:   u.AvatarURL,
+					Bio:         u.Bio,
+					UpdatedAt:   u.UpdatedAt,
+				})
+				if pubErr != nil {
+					log.Error("Failed to publish ProfileUpdatedEvent", "err", pubErr, "user_id", u.ID)
+				} else {
+					log.Info("Successfully published ProfileUpdatedEvent to Redis", "user_id", u.ID, "display_name", u.DisplayName)
+				}
+			}(updated)
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)

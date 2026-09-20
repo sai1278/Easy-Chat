@@ -110,8 +110,9 @@ func main() {
 	// 4. Initialize Repositories and Usecase
 	chatRepo := persistence.NewPostgresChatRepository(db)
 	roomRepo := persistence.NewPostgresRoomRepository(db)
+	requestRepo := persistence.NewPostgresRequestRepository(db)
 	cacheRepo := cache.NewRedisCacheRepository(rdb)
-	usecase := application.NewChatUsecase(chatRepo, roomRepo, cacheRepo, pipeline)
+	usecase := application.NewChatUsecase(chatRepo, roomRepo, requestRepo, cacheRepo, pipeline)
 
 	// Read secret key for JWT verification
 	secretEnv := os.Getenv("JWT_SECRET")
@@ -120,13 +121,15 @@ func main() {
 	}
 	secretKey := []byte(secretEnv)
 
-	// 5. Initialize WebSocket Server
-	wsServer := transportws.NewServer(usecase, roomRepo, rdb, secretKey)
+	// 5. Initialize Proximity Validator and WebSocket Server
+	proximityValidator := application.NewProximityValidator(rdb, db)
+	wsServer := transportws.NewServer(usecase, roomRepo, rdb, secretKey, proximityValidator)
 
-	// 6. Start the Kafka consumer routing loop in the background
+	// 6. Start the Kafka consumer routing loop & ProfileEventSubscriber in the background
 	ctxConsumer, cancelConsumer := context.WithCancel(context.Background())
 	defer cancelConsumer()
 	go wsServer.StartKafkaConsumer(ctxConsumer, pipeline)
+	go wsServer.StartProfileEventSubscriber(ctxConsumer)
 
 	// 7. Start HTTP Server for WebSocket connections and REST endpoints
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -135,6 +138,13 @@ func main() {
 	})
 	http.HandleFunc("/ws", wsServer.HandleWS)
 	http.HandleFunc("/api/v1/chat/rooms", wsServer.HandleRooms)
+	http.HandleFunc("/api/v1/chat/requests", wsServer.HandleRequests)
+	http.HandleFunc("/api/v1/chat/requests/pending", wsServer.HandlePendingRequests)
+	http.HandleFunc("/api/v1/chat/requests/status", wsServer.HandleRequestStatus)
+	http.HandleFunc("/api/v1/chat/requests/", wsServer.HandleRequestActions)
+	http.HandleFunc("/api/v1/chat/keys", wsServer.HandleKeys)
+	http.HandleFunc("/api/v1/chat/keys/", wsServer.HandleKeyByUser)
+	http.HandleFunc("/api/v1/chat/messages/", wsServer.HandleDeleteMessage)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Info("WebSocket Server listening", "addr", addr)

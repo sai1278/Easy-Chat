@@ -70,3 +70,14 @@ coverage/
 postgres_data/
 redis_data/
 kafka_data/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+.terraform/
+
+# Android Signing
+key.properties
+*.properties.local

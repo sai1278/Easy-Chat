@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"nearby/backend/services/nearby/internal/domain"
+	"nearby/backend/shared/geo"
 )
 
 var (
@@ -51,12 +52,12 @@ func (u *NearbyUsecase) FindNearby(
 	if err == nil {
 		if meta, exists := ownMetadata[userID]; exists && meta.Status == "ACTIVE" && meta.IsVisible {
 			// Requester is active and visible; publish/update their location in Redis Geo Set
-			_ = u.geoRepo.UpdateUserLocation(ctx, userID, lat, lon, 60*time.Second)
+			_ = u.geoRepo.UpdateUserLocation(ctx, userID, lat, lon, nil, 60*time.Second)
 		}
 	}
 
 	// 3. Query Redis Geo Index for nearby user IDs within radius
-	nearbyIDs, distances, err := u.geoRepo.FindNearbyUsers(ctx, lat, lon, radiusMeters)
+	nearbyIDs, distances, accuracies, err := u.geoRepo.FindNearbyUsers(ctx, lat, lon, radiusMeters)
 	if err != nil {
 		return nil, err
 	}
@@ -122,12 +123,26 @@ func (u *NearbyUsecase) FindNearby(
 			bucket = "beyond 200m"
 		}
 
+		var accPtr *float64
+		if acc, ok := accuracies[id]; ok && acc > 0 {
+			accVal := acc
+			accPtr = &accVal
+		}
+
 		results = append(results, &domain.NearbyUser{
-			UserID:         meta.UserID,
-			Pseudonym:      meta.Pseudonym,
-			AvatarID:       meta.AvatarID,
-			DistanceMeters: dist,
-			DistanceBucket: bucket,
+			UserID:                meta.UserID,
+			Pseudonym:             meta.Pseudonym,
+			DisplayName:           meta.DisplayName,
+			AvatarURL:             meta.AvatarURL,
+			Bio:                   meta.Bio,
+			AvatarID:              meta.AvatarID,
+			DistanceMeters:        dist,
+			DistanceDisplay:       geo.FormatDistance(dist),
+			WithinChatRadius:      dist <= geo.MaxChatDistanceMeters,
+			MaxChatDistanceMeters: geo.MaxChatDistanceMeters,
+			DistanceBucket:        bucket,
+			AccuracyMeters:        accPtr,
+			LocationUpdatedAt:     time.Now().UTC().Format(time.RFC3339),
 		})
 	}
 

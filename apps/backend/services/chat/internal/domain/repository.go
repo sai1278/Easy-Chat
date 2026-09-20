@@ -9,19 +9,32 @@ import (
 type ChatRepository interface {
 	SaveMessage(ctx context.Context, msg *Message) error
 	SaveReceipt(ctx context.Context, receipt *ReadReceipt) error
+	GetMessageByID(ctx context.Context, messageID, roomID string) (*Message, error)
+	DeleteMessageForEveryone(ctx context.Context, messageID, roomID, senderID string) error
+	GetDeletedMessagesSince(ctx context.Context, roomIDs []string, since time.Time) ([]string, error)
 	GetRoomMessagesSince(ctx context.Context, roomID string, since time.Time) ([]*Message, error)
 	GetRoomsMessagesSince(ctx context.Context, roomIDs []string, since time.Time, limit, offset int) ([]*Message, error)
 	GetActiveRoomsForUser(ctx context.Context, userID string) ([]string, error)
+	SaveCryptoIdentity(ctx context.Context, identity *UserCryptoIdentity) error
+	GetCryptoIdentity(ctx context.Context, userID string) (*UserCryptoIdentity, error)
 }
 
-// RoomRepository defines lookup of chat room membership.
-// Used by the Kafka consumer in the WebSocket transport to route events
-// without issuing raw SQL from the transport layer (HIGH-06 fix).
+// RoomRepository defines lookup of chat room membership and status.
 type RoomRepository interface {
-	// GetMembers returns the user IDs of all participants in the given room.
 	GetMembers(ctx context.Context, roomID string) ([]string, error)
-	// GetOrCreateRoom fetches or creates a mutually unique active chat room for the two users.
 	GetOrCreateRoom(ctx context.Context, userA, userB string) (string, error)
+	IsRoomActive(ctx context.Context, roomID string) (bool, error)
+}
+
+// RequestRepository defines PostgreSQL database methods for chat request lifecycle.
+type RequestRepository interface {
+	CreateRequest(ctx context.Context, senderID, recipientID string) (*ChatRequest, error)
+	GetPendingRequestsForUser(ctx context.Context, recipientID string) ([]*ChatRequest, error)
+	GetRequestByID(ctx context.Context, requestID string) (*ChatRequest, error)
+	GetRequestBetweenUsers(ctx context.Context, userA, userB string) (*ChatRequest, error)
+	AcceptRequest(ctx context.Context, requestID, recipientID string) (*ChatRequest, error)
+	DenyRequest(ctx context.Context, requestID, recipientID string) (*ChatRequest, error)
+	IsRoomActiveAndAccepted(ctx context.Context, roomID string) (bool, error)
 }
 
 // CacheRepository defines Redis cache operations, idempotency keys, and pub/sub.

@@ -125,7 +125,7 @@ func main() {
 	httpPort := 8088
 	httpMux := http.NewServeMux()
 
-	httpHandler := transporthttp.NewHandler(usecase, geoRepo)
+	httpHandler := transporthttp.NewHandler(usecase, geoRepo, userRepo)
 	httpHandler.RegisterRoutes(httpMux)
 
 	httpMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

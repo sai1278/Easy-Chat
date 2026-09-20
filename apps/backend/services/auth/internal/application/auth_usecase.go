@@ -71,7 +71,7 @@ func NewAuthUsecase(
 // Fixes addressed:
 //   - CRIT-01: password hashed with bcrypt (not string concatenation).
 //   - CRIT-08: UUID generated with google/uuid (not a hardcoded literal).
-func (u *AuthUsecase) Onboard(ctx context.Context, deviceID string, password string) (*domain.User, error) {
+func (u *AuthUsecase) Onboard(ctx context.Context, deviceID, password, displayName, username string) (*domain.User, error) {
 	if deviceID == "" || password == "" {
 		return nil, fmt.Errorf("%w: device_id and password are required", domain.ErrInvalidInput)
 	}
@@ -107,12 +107,22 @@ func (u *AuthUsecase) Onboard(ctx context.Context, deviceID string, password str
 		return nil, fmt.Errorf("uuid generation: %w", err)
 	}
 
-	// 5. Generate a unique pseudonym derived from the UUID prefix.
-	pseudonym := fmt.Sprintf("user-%s", userID.String()[:8])
+	// 5. Determine display name and pseudonym
+	if displayName == "" && username != "" {
+		displayName = username
+	}
+	if username == "" && displayName != "" {
+		username = displayName
+	}
+	if username == "" && displayName == "" {
+		username = fmt.Sprintf("user-%s", userID.String()[:8])
+		displayName = username
+	}
 
 	user := &domain.User{
 		ID:           userID.String(),
-		Pseudonym:    pseudonym,
+		Pseudonym:    username,
+		DisplayName:  displayName,
 		DeviceID:     deviceID,
 		PasswordHash: string(hashedPassword),
 		Role:         domain.RoleAnonymousUser,
@@ -160,7 +170,7 @@ func (u *AuthUsecase) Login(ctx context.Context, deviceID string, password strin
 	sessionID := sessionUUID.String()
 
 	// Sign a proper JWT access token (CRIT-01).
-	accessToken, err = u.generateJWT(user.ID, sessionID, string(user.Role), 15*time.Minute)
+	accessToken, err = u.generateJWT(user.ID, sessionID, string(user.Role), 7*24*time.Hour)
 	if err != nil {
 		return "", "", fmt.Errorf("access token generation: %w", err)
 	}
@@ -230,8 +240,8 @@ func (u *AuthUsecase) Refresh(ctx context.Context, sessionID string, oldRefreshT
 	if err := bcrypt.CompareHashAndPassword([]byte(session.RefreshTokenHash), []byte(oldRefreshToken)); err != nil {
 		// Mismatch means a replay or token theft. Revoke everything.
 		_ = u.sessionRepo.RevokeAllSessionsForUser(ctx, session.UserID)
-		_ = u.redisCache.BlacklistToken(ctx, session.ID, 15*time.Minute)
-		return "", "", domain.ErrReplayDetected
+		_ = u.redisCache.BlacklistToken(ctx, session.ID, 7*24*time.Hour)
+		return "", "", fmt.Errorf("%w: refresh token reuse detected; all sessions revoked", domain.ErrUnauthorized)
 	}
 
 	// Use the role stored on the session (fixes LOW-01 role downgrade).
@@ -241,7 +251,7 @@ func (u *AuthUsecase) Refresh(ctx context.Context, sessionID string, oldRefreshT
 	}
 
 	// Issue new access token.
-	newAccessToken, err := u.generateJWT(session.UserID, session.ID, role, 15*time.Minute)
+	newAccessToken, err := u.generateJWT(session.UserID, session.ID, role, 7*24*time.Hour)
 	if err != nil {
 		return "", "", fmt.Errorf("access token generation: %w", err)
 	}

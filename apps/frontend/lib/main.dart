@@ -11,6 +11,7 @@ import 'core/network/websocket_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/battery_optimizer.dart';
 import 'features/chat/data/chat_repository.dart';
+import 'features/chat/domain/chat_request.dart';
 import 'features/chat/presentation/chat_controller.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'features/nearby/presentation/nearby_screen.dart';
@@ -66,21 +67,21 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
+        dioClientProvider.overrideWithValue(dioClient),
+        isarServiceProvider.overrideWithValue(isarService),
         webSocketClientProvider.overrideWithValue(wsClient),
         profileRepositoryProvider.overrideWith((ref) => ProfileRepository(
               isar: isarService,
-              dioClient: dioClient,
+              dioClient: ref.watch(dioClientProvider),
             )),
-        // Override repository provider with initialized instance
         chatRepositoryProvider.overrideWith((ref) {
           final repo = ChatRepository(
             isar: isarService,
-            dioClient: dioClient,
+            dioClient: ref.watch(dioClientProvider),
             wsClient: wsClient,
             currentUserId: effectiveUserId,
           );
 
-          // Start receiving WebSocket events for active user session after build frame completes
           if (jwtToken.isNotEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               repo.startWebSocketListener(jwtToken);
@@ -176,7 +177,7 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
           return map;
         });
 
-        final text = String.fromCharCodes(msg.encryptedPayload);
+        final text = utf8.decode(msg.encryptedPayload, allowMalformed: true);
         final messenger = rootScaffoldMessengerKey.currentState;
         messenger?.hideCurrentSnackBar();
         messenger?.showSnackBar(
@@ -212,11 +213,125 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
               label: 'View',
               textColor: Colors.amber,
               onPressed: () {
-                AppRouter.router.go('/chat/${msg.roomId}?peerId=${msg.senderId}');
+                AppRouter.router.go('/chat/${msg.roomId}?peerId=${msg.senderId}&status=ACCEPTED');
               },
             ),
           ),
         );
+      });
+    });
+
+    // Listen for incoming Chat Request events globally
+    ref.listen<AsyncValue<ChatRequest?>>(incomingChatRequestStreamProvider, (prev, next) {
+      next.whenData((req) {
+        if (req == null) return;
+        final chatRepo = ref.read(chatRepositoryProvider);
+        final messenger = rootScaffoldMessengerKey.currentState;
+        if (messenger == null) return;
+
+        final isRecipient = req.recipientId == chatRepo.currentUserId;
+        final isSender = req.senderId == chatRepo.currentUserId;
+
+        if (req.status == ChatRequestStatus.pending && isRecipient) {
+          // User B received a new incoming chat request
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.mark_chat_unread_rounded, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chat Request from ${req.senderDisplayName ?? req.senderUsername ?? "Nearby User"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        if (req.senderBio != null && req.senderBio!.isNotEmpty)
+                          Text(
+                            req.senderBio!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.indigo.shade800,
+              duration: const Duration(seconds: 8),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Accept',
+                textColor: Colors.greenAccent,
+                onPressed: () async {
+                  try {
+                    await chatRepo.acceptChatRequest(req.id);
+                  } catch (e) {
+                    messenger.showSnackBar(SnackBar(content: Text('Failed to accept: $e')));
+                  }
+                },
+              ),
+            ),
+          );
+        } else if (req.status == ChatRequestStatus.accepted && isSender) {
+          // User A's request was accepted!
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Chat request accepted by ${req.senderDisplayName ?? "Peer"}! You can now chat.',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.teal.shade900,
+              duration: const Duration(seconds: 6),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Open Chat',
+                textColor: Colors.amber,
+                onPressed: () {
+                  if (req.roomId != null && req.roomId!.isNotEmpty) {
+                    AppRouter.router.push('/chat/${req.roomId}?peerId=${req.recipientId}&status=ACCEPTED');
+                  }
+                },
+              ),
+            ),
+          );
+        } else if (req.status == ChatRequestStatus.denied && isSender) {
+          // User A's request was denied
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.cancel_rounded, color: Colors.redAccent),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Chat request denied.',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red.shade900,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       });
     });
 

@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
+import 'clay_design_system.dart';
 
 class AppTheme {
-  static const Color primarySeed = Color(0xFF6750A4);
-  static const Color secondarySeed = Color(0xFF006A60); // Proximity Teal
-
   static ThemeData get lightTheme {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primarySeed,
-      secondary: secondarySeed,
-      brightness: Brightness.light,
+    const colorScheme = ColorScheme.light(
+      primary: ClayColors.accent,
+      onPrimary: Colors.white,
+      primaryContainer: ClayColors.accentLight,
+      onPrimaryContainer: ClayColors.accent,
+      secondary: ClayColors.textSecondary,
+      onSecondary: Colors.white,
+      secondaryContainer: ClayColors.surfaceMuted,
+      onSecondaryContainer: ClayColors.textPrimary,
+      surface: ClayColors.card,
+      onSurface: ClayColors.textPrimary,
+      onSurfaceVariant: ClayColors.textSecondary,
+      outline: ClayColors.borderSoft,
+      outlineVariant: Color(0x18000000),
+      error: ClayColors.danger,
+      onError: Colors.white,
+      errorContainer: ClayColors.dangerSoft,
+      onErrorContainer: ClayColors.danger,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.surfaceContainerLowest,
+      scaffoldBackgroundColor: ClayColors.canvas,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
@@ -24,175 +36,106 @@ class AppTheme {
           TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
         },
       ),
-      appBarTheme: AppBarTheme(
-        centerTitle: true,
-        backgroundColor: colorScheme.surfaceContainerLowest,
+      appBarTheme: const AppBarTheme(
+        centerTitle: false,
+        backgroundColor: ClayColors.canvas,
         elevation: 0,
-        scrolledUnderElevation: 2,
+        scrolledUnderElevation: 0,
+        iconTheme: IconThemeData(color: ClayColors.textPrimary),
         titleTextStyle: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+          color: ClayColors.textPrimary,
+          letterSpacing: -0.4,
         ),
       ),
       cardTheme: CardTheme(
+        color: ClayColors.card,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: ClayColors.borderSoft),
         ),
         clipBehavior: Clip.antiAlias,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: colorScheme.inverseSurface,
-        contentTextStyle: TextStyle(color: colorScheme.onInverseSurface, fontSize: 14),
+        backgroundColor: ClayColors.textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
       ),
-      bottomSheetTheme: BottomSheetThemeData(
+      bottomSheetTheme: const BottomSheetThemeData(
         showDragHandle: true,
-        backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-      ),
-      dialogTheme: DialogTheme(
-        backgroundColor: colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        elevation: 3,
-      ),
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        side: BorderSide.none,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        elevation: 2,
-        indicatorColor: colorScheme.secondaryContainer,
-        labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: colorScheme.surfaceContainerHigh,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      ),
-    );
-  }
-
-  static ThemeData get darkTheme {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primarySeed,
-      secondary: secondarySeed,
-      brightness: Brightness.dark,
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.surface,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-        },
-      ),
-      appBarTheme: AppBarTheme(
-        centerTitle: true,
-        backgroundColor: colorScheme.surface,
-        elevation: 0,
-        scrolledUnderElevation: 2,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.onSurface,
-        ),
-      ),
-      cardTheme: CardTheme(
-        elevation: 0,
+        backgroundColor: ClayColors.card,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-        ),
-        clipBehavior: Clip.antiAlias,
-      ),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: colorScheme.inverseSurface,
-        contentTextStyle: TextStyle(color: colorScheme.onInverseSurface, fontSize: 14),
-      ),
-      bottomSheetTheme: BottomSheetThemeData(
-        showDragHandle: true,
-        backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
       dialogTheme: DialogTheme(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: ClayColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        elevation: 3,
+        elevation: 4,
+        titleTextStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: ClayColors.textPrimary,
+          letterSpacing: -0.3,
+        ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: const BorderSide(color: ClayColors.borderSoft),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        backgroundColor: ClayColors.surfaceSubtle,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        elevation: 2,
-        indicatorColor: colorScheme.secondaryContainer,
+        elevation: 0,
+        backgroundColor: ClayColors.canvas,
+        indicatorColor: ClayColors.accentLight,
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ClayColors.textPrimary),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          backgroundColor: ClayColors.accent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.2),
+          elevation: 0,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ClayColors.textPrimary,
+          side: const BorderSide(color: ClayColors.borderSoft, width: 1.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHigh,
+        fillColor: ClayColors.surfaceSubtle,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: ClayColors.borderSoft),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: ClayColors.borderSoft),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: ClayColors.accent, width: 1.8),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        labelStyle: const TextStyle(color: ClayColors.textSecondary, fontSize: 14),
+        hintStyle: const TextStyle(color: ClayColors.textTertiary, fontSize: 14),
       ),
     );
   }
+
+  static ThemeData get darkTheme => lightTheme; // Brand consistency: Clay look is signature #F0EEE9
 }

@@ -3,6 +3,7 @@ import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
+import '../../features/chat/domain/chat_request.dart';
 import '../../features/nearby/presentation/nearby_screen.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
@@ -70,7 +71,11 @@ class AppRouter {
         builder: (context, state) {
           final roomId = state.pathParameters['roomId'] ?? '';
           final peerId = state.uri.queryParameters['peerId'] ?? '';
-          return ChatScreen(roomId: roomId, peerId: peerId);
+          final statusStr = state.uri.queryParameters['status'];
+          final initialStatus = statusStr != null && statusStr.isNotEmpty
+              ? ChatRequestStatus.fromString(statusStr)
+              : ChatRequestStatus.accepted;
+          return ChatScreen(roomId: roomId, peerId: peerId, initialStatus: initialStatus);
         },
       ),
     ],

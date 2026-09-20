@@ -82,6 +82,22 @@ func (s *S3StorageRepository) DownloadFile(ctx context.Context, key string) ([]b
 	return io.ReadAll(resp.Body)
 }
 
+// DeleteFile permanently deletes file bytes from S3 or local memory.
+func (s *S3StorageRepository) DeleteFile(ctx context.Context, key string) error {
+	if s.client == nil {
+		s.localMu.Lock()
+		delete(s.localCache, key)
+		s.localMu.Unlock()
+		return nil
+	}
+
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
 // GeneratePreSignedUploadURL returns a presigned S3 upload URL.
 func (s *S3StorageRepository) GeneratePreSignedUploadURL(ctx context.Context, key string, expiry time.Duration) (string, error) {
 	if s.client == nil || s.presignClient == nil {

@@ -13,7 +13,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nearby_frontend/main.dart';
 import 'package:nearby_frontend/core/network/websocket_client.dart';
 import 'package:nearby_frontend/core/database/entities/message_entity.dart';
+import 'package:nearby_frontend/features/chat/domain/chat_message_payload.dart';
 import 'package:nearby_frontend/features/chat/data/chat_repository.dart';
+import 'package:nearby_frontend/features/chat/domain/chat_request.dart';
+import 'package:nearby_frontend/core/crypto/crypto_service.dart';
 import 'package:nearby_frontend/features/chat/presentation/chat_controller.dart';
 
 // Minimal fake WebSocketClient for testing
@@ -56,13 +59,28 @@ class FakeChatRepository implements ChatRepository {
   String? activeRoomId;
 
   @override
+  void clearVolatileCache() {}
+
+  @override
   Stream<MessageEntity> get incomingMessages => const Stream.empty();
+
+  @override
+  Stream<Map<String, dynamic>> get profileUpdates => const Stream.empty();
+
+  @override
+  CryptoService get cryptoService => CryptoService();
 
   @override
   String get currentUserId => 'test-user-id';
 
   @override
   Future<void> updateCurrentUserId(String userId) async {}
+
+  @override
+  Future<void> registerCryptoKeys() async {}
+
+  @override
+  Future<Map<String, String>?> getPeerKeys(String peerId) async => null;
 
   @override
   Future<void> ensureConnected([String? token]) async {}
@@ -78,9 +96,20 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> sendMessage(String roomId, String text) async {
+  Future<void> sendMessage(String roomId, ChatMessagePayload payload, {String? peerId}) async {
     // No-op for testing
   }
+
+  @override
+  Future<ChatMessagePayload> decryptPayload(MessageEntity entity, {String? peerId}) async {
+    return ChatMessagePayload.fromBytes(entity.encryptedPayload);
+  }
+
+  @override
+  Future<void> deleteMessageForMe(String roomId, String messageId) async {}
+
+  @override
+  Future<void> deleteMessageForEveryone(String roomId, String messageId) async {}
 
   @override
   void startWebSocketListener(String token) {
@@ -95,6 +124,61 @@ class FakeChatRepository implements ChatRepository {
   @override
   void sendTypingIndicator(String roomId, bool isTyping) {
     // No-op for testing
+  }
+
+  @override
+  Stream<ChatRequest> get chatRequests => const Stream.empty();
+
+  @override
+  Future<ChatRequest> sendChatRequest(String recipientId) async {
+    return ChatRequest(
+      id: 'test-req-id',
+      senderId: currentUserId,
+      recipientId: recipientId,
+      status: ChatRequestStatus.pending,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<List<ChatRequest>> getPendingRequests() async {
+    return [];
+  }
+
+  @override
+  Future<ChatRequest?> getRequestStatus(String peerId) async {
+    return null;
+  }
+
+  @override
+  Future<ChatRequest> acceptChatRequest(String requestId) async {
+    return ChatRequest(
+      id: requestId,
+      senderId: 'peer-id',
+      recipientId: currentUserId,
+      roomId: 'test-room-id',
+      status: ChatRequestStatus.accepted,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<ChatRequest> denyChatRequest(String requestId) async {
+    return ChatRequest(
+      id: requestId,
+      senderId: 'peer-id',
+      recipientId: currentUserId,
+      status: ChatRequestStatus.denied,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<ChatRequest?> getChatRequestById(String requestId) async {
+    return null;
   }
 
   @override

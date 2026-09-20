@@ -37,6 +37,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 type UserProfile struct {
 	ID          string    `json:"id"`
 	Pseudonym   string    `json:"pseudonym"`
+	Username    string    `json:"username"`
 	DeviceID    string    `json:"device_id"`
 	Role        string    `json:"role"`
 	DisplayName string    `json:"display_name"`
@@ -65,19 +66,27 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*UserProfi
 		}
 		return nil, fmt.Errorf("query user by id: %w", err)
 	}
+	profile.Username = profile.Pseudonym
 	return &profile, nil
 }
 
 // UpdateProfile updates user profile metadata in PostgreSQL.
-func (r *UserRepository) UpdateProfile(ctx context.Context, id, displayName, avatarURL, bio string) (*UserProfile, error) {
+func (r *UserRepository) UpdateProfile(ctx context.Context, id, displayName, username, avatarURL, bio string) (*UserProfile, error) {
+	if username == "" && displayName != "" {
+		username = displayName
+	}
 	query := `
 		UPDATE users 
-		SET display_name = $1, avatar_url = $2, bio = $3, updated_at = NOW() 
-		WHERE id = $4 
+		SET display_name = $1, 
+		    pseudonym = CASE WHEN $2 <> '' THEN $2 ELSE pseudonym END,
+		    avatar_url = $3, 
+		    bio = $4, 
+		    updated_at = NOW() 
+		WHERE id = $5 
 		RETURNING id, pseudonym, device_id, role, COALESCE(display_name, ''), COALESCE(avatar_url, ''), COALESCE(bio, ''), updated_at
 	`
 	var profile UserProfile
-	err := r.db.QueryRowContext(ctx, query, displayName, avatarURL, bio, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, displayName, username, avatarURL, bio, id).Scan(
 		&profile.ID,
 		&profile.Pseudonym,
 		&profile.DeviceID,
@@ -90,5 +99,6 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id, displayName, ava
 	if err != nil {
 		return nil, fmt.Errorf("update user profile: %w", err)
 	}
+	profile.Username = profile.Pseudonym
 	return &profile, nil
 }

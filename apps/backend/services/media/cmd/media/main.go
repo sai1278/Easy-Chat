@@ -100,6 +100,14 @@ func main() {
 		} else {
 			log.Error("Failed to load AWS configuration", "err", err)
 		}
+	} else if os.Getenv("APP_ENV") == "production" || os.Getenv("USE_AWS_IAM") == "true" {
+		awsCfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s3Region))
+		if err == nil {
+			s3Client = s3.NewFromConfig(awsCfg)
+			log.Info("S3 Storage Client initialized via AWS IAM Instance Profile", "bucket", s3Bucket, "region", s3Region)
+		} else {
+			log.Warn("Failed to resolve AWS IAM credentials, falling back to local storage", "err", err)
+		}
 	} else {
 		log.Warn("S3 credentials not set. Falling back to local in-memory storage mode.")
 	}
@@ -177,4 +185,21 @@ func (m *mockMetadataRepository) GetMetadata(ctx context.Context, id string) (*d
 		return nil, fmt.Errorf("metadata not found: %s", id)
 	}
 	return meta, nil
+}
+
+func (m *mockMetadataRepository) DeleteMetadata(ctx context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cache != nil {
+		delete(m.cache, id)
+	}
+	return nil
+}
+
+func (m *mockMetadataRepository) IsUserInRoom(ctx context.Context, userID, roomID string) (bool, error) {
+	return true, nil
+}
+
+func (m *mockMetadataRepository) IsMessageActiveInRoom(ctx context.Context, messageID, roomID string) (bool, error) {
+	return true, nil
 }

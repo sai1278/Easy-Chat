@@ -93,6 +93,9 @@ class TestableDioClient implements DioClient {
   Dio get dio => _customDio;
 
   @override
+  String? get cachedToken => null;
+
+  @override
   Future<void> updateToken(String? token) async {}
 }
 

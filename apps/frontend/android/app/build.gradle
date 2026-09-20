@@ -63,6 +63,10 @@ android {
                 keyAlias = System.getenv('ANDROID_KEY_ALIAS')
                 keyPassword = System.getenv('ANDROID_KEY_PASSWORD')
             } else {
+                def isReleaseTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+                if (isReleaseTask && System.getenv('CI') == 'true') {
+                    throw new GradleException("CRITICAL: Release signing configuration missing in CI environment. Provide key.properties or ANDROID_KEYSTORE_* environment variables.")
+                }
                 storeFile = signingConfigs.debug.storeFile
                 storePassword = signingConfigs.debug.storePassword
                 keyAlias = signingConfigs.debug.keyAlias

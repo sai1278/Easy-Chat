@@ -20,8 +20,10 @@ func NewAuthHandler(u *application.AuthUsecase) *AuthHandler {
 // Onboard handles registration profiles requests.
 func (h *AuthHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
-		DeviceID string `json:"device_id"`
-		Password string `json:"password"`
+		DeviceID    string `json:"device_id"`
+		Password    string `json:"password"`
+		DisplayName string `json:"display_name"`
+		Username    string `json:"username"`
 	}
 
 	var req Request
@@ -32,7 +34,7 @@ func (h *AuthHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.usecase.Onboard(r.Context(), req.DeviceID, req.Password)
+	user, err := h.usecase.Onboard(r.Context(), req.DeviceID, req.Password, req.DisplayName, req.Username)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		if errors.Is(err, domain.ErrRateLimitExceeded) {

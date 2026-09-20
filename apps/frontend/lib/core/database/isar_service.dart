@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'entities/message_entity.dart';
 import 'entities/user_entity.dart';
 
@@ -14,6 +15,9 @@ abstract class IsarService {
   Isar? get isar;
   Stream<List<MessageEntity>> watchMessages(String roomId);
   Future<void> saveMessage(MessageEntity message);
+  Future<void> deleteMessage(String messageId);
+  Future<bool> isMessageDeleted(String messageId);
+  Future<MessageEntity?> getMessage(String messageId);
   Future<void> saveUser(UserEntity user);
   Future<List<UserEntity>> getUsers();
   Future<UserEntity?> getUser(String userId);
@@ -117,9 +121,37 @@ class NativeIsarService implements IsarService {
 
   @override
   Future<void> saveMessage(MessageEntity message) async {
+    if (await isMessageDeleted(message.messageId)) {
+      return; // Never resurrect deleted messages
+    }
     await _isar.writeTxn(() async {
       await _isar.messageEntitys.put(message);
     });
+  }
+
+  @override
+  Future<MessageEntity?> getMessage(String messageId) async {
+    return await _isar.messageEntitys.filter().messageIdEqualTo(messageId).findFirst();
+  }
+
+  @override
+  Future<bool> isMessageDeleted(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final tombstones = prefs.getStringList('deleted_tombstones') ?? [];
+    return tombstones.contains(messageId);
+  }
+
+  @override
+  Future<void> deleteMessage(String messageId) async {
+    await _isar.writeTxn(() async {
+      await _isar.messageEntitys.filter().messageIdEqualTo(messageId).deleteAll();
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final tombstones = prefs.getStringList('deleted_tombstones') ?? [];
+    if (!tombstones.contains(messageId)) {
+      tombstones.add(messageId);
+      await prefs.setStringList('deleted_tombstones', tombstones);
+    }
   }
 
   @override
@@ -143,6 +175,7 @@ class NativeIsarService implements IsarService {
 /// Web-compatible Storage implementation avoiding Isar 3.x web runtime exception.
 class WebStorageService implements IsarService {
   final Map<String, MessageEntity> _messages = {};
+  final Set<String> _tombstones = {};
   final Map<String, UserEntity> _users = {};
   final _messageStreamController = StreamController<List<MessageEntity>>.broadcast();
 
@@ -183,8 +216,28 @@ class WebStorageService implements IsarService {
 
   @override
   Future<void> saveMessage(MessageEntity message) async {
+    if (_tombstones.contains(message.messageId)) return;
     _messages[message.messageId] = message;
     _messageStreamController.add(_getRoomMessages(message.roomId));
+  }
+
+  @override
+  Future<MessageEntity?> getMessage(String messageId) async {
+    return _messages[messageId];
+  }
+
+  @override
+  Future<bool> isMessageDeleted(String messageId) async {
+    return _tombstones.contains(messageId);
+  }
+
+  @override
+  Future<void> deleteMessage(String messageId) async {
+    _tombstones.add(messageId);
+    final msg = _messages.remove(messageId);
+    if (msg != null) {
+      _messageStreamController.add(_getRoomMessages(msg.roomId));
+    }
   }
 
   @override

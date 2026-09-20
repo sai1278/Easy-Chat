@@ -82,8 +82,13 @@ func (p *KafkaPipeline) ConsumeChatEvents(ctx context.Context) (<-chan *domain.E
 		for {
 			m, err := p.reader.ReadMessage(ctx)
 			if err != nil {
-				// Stop loop on context cancellation or reader close.
-				return
+				if ctx.Err() != nil {
+					// Stop loop on context cancellation.
+					return
+				}
+				slog.Error("Kafka consumer ReadMessage error, retrying", "err", err)
+				time.Sleep(500 * time.Millisecond)
+				continue
 			}
 
 			var event domain.EventPacket

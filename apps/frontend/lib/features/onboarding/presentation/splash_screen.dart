@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../../core/theme/clay_design_system.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -22,14 +23,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.04).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutCubic),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -63,10 +64,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: ClayColors.canvas,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -79,22 +78,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: Container(
-                      padding: const EdgeInsets.all(28),
+                      width: 104,
+                      height: 104,
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
+                        color: ClayColors.card,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.3),
-                            blurRadius: 30,
-                            spreadRadius: 10,
-                          ),
-                        ],
+                        boxShadow: ClayShadows.cardElevated,
+                        border: Border.all(color: ClayColors.borderSoft, width: 1.2),
                       ),
-                      child: Icon(
-                        Icons.radar_rounded,
-                        size: 64,
-                        color: colorScheme.onPrimaryContainer,
+                      child: const Center(
+                        child: EasyChatLogoMark(size: 58),
                       ),
                     ),
                   ),
@@ -102,27 +95,33 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               },
             ),
             const SizedBox(height: 32),
-            Text(
-              'Nearby Connect',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
+            const Text(
+              'Easy Chat',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: ClayColors.textPrimary,
+                letterSpacing: -0.6,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Ephemeral Spatial Mesh Chat',
+            const Text(
+              'Connect with people nearby',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: colorScheme.onSurfaceVariant,
+                color: ClayColors.textSecondary,
+                letterSpacing: -0.2,
               ),
             ),
             const SizedBox(height: 48),
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: colorScheme.primary),
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: ClayColors.accent,
+              ),
             ),
           ],
         ),

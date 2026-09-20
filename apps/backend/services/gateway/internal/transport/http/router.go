@@ -225,6 +225,10 @@ func (r *Router) RegisterRoutes() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	r.mux.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 
 	// Register cluster proxy route handlers
 	r.mux.HandleFunc("/api/v1/auth/", r.ProxyHandler(r.authCluster, r.authCB))
@@ -437,9 +441,9 @@ func (r *Router) LoggingAndRequestIDMiddleware(next http.Handler) http.Handler {
 // Middleware 5: Authentication Validation
 func (r *Router) AuthValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Exempt login, onboard, registration, OPTIONS preflight, and health endpoints from authentication
+		// Exempt login, onboard, registration, OPTIONS preflight, health endpoints from authentication
 		path := req.URL.Path
-		if req.Method == http.MethodOptions || path == "/healthz" || strings.HasPrefix(path, "/api/v1/auth/") || path == "/ws" || strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
+		if req.Method == http.MethodOptions || path == "/healthz" || path == "/health" || strings.HasPrefix(path, "/api/v1/auth/") || path == "/ws" || strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
 			next.ServeHTTP(w, req)
 			return
 		}

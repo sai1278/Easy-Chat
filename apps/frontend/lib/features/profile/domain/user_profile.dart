@@ -16,10 +16,14 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    final dName = json['display_name'] as String? ?? '';
+    final uName = json['username'] as String? ?? json['pseudonym'] as String? ?? '';
+    final resolvedUsername = uName.isNotEmpty ? uName : (dName.isNotEmpty ? dName : 'User');
+    final resolvedDisplayName = dName.isNotEmpty ? dName : resolvedUsername;
     return UserProfile(
       id: json['id'] as String? ?? '',
-      username: json['pseudonym'] as String? ?? json['username'] as String? ?? '',
-      displayName: json['display_name'] as String? ?? '',
+      username: resolvedUsername,
+      displayName: resolvedDisplayName,
       avatarUrl: json['avatar_url'] as String? ?? '',
       bio: json['bio'] as String? ?? '',
       updatedAt: json['updated_at'] != null

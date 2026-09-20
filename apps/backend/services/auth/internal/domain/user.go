@@ -18,6 +18,7 @@ const (
 type User struct {
 	ID           string    `json:"id"`
 	Pseudonym    string    `json:"pseudonym"`
+	DisplayName  string    `json:"display_name"`
 	DeviceID     string    `json:"device_id"`
 	PasswordHash string    `json:"-"` // bcrypt hash — never serialised
 	Role         Role      `json:"role"`
