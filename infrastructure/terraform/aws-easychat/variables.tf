@@ -46,10 +46,16 @@ variable "domain_name" {
   default     = "api.easychat.com"
 }
 
-variable "s3_media_bucket_name" {
-  description = "Globally unique name for Easy Chat S3 media storage"
+variable "s3_bucket_suffix" {
+  description = "Globally unique suffix (such as AWS account ID or unique string) to ensure global S3 bucket uniqueness"
   type        = string
-  default     = "easychat-media-production-storage"
+  default     = "storage"
+}
+
+variable "s3_media_bucket_name" {
+  description = "Explicit globally unique name for Easy Chat S3 media storage. If null, derived from project_name, environment, and s3_bucket_suffix"
+  type        = string
+  default     = null
 }
 
 variable "admin_ssh_cidr" {

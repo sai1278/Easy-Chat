@@ -1,5 +1,12 @@
+locals {
+  s3_bucket_name = coalesce(
+    var.s3_media_bucket_name,
+    var.s3_bucket_suffix != "" ? "${var.project_name}-media-${var.environment}-${var.s3_bucket_suffix}" : "${var.project_name}-media-${var.environment}"
+  )
+}
+
 resource "aws_s3_bucket" "media_bucket" {
-  bucket        = var.s3_media_bucket_name
+  bucket        = local.s3_bucket_name
   force_destroy = false
 
   tags = {

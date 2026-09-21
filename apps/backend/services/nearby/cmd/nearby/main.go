@@ -78,7 +78,8 @@ func main() {
 		} else {
 			// Fallback to direct address if parsing fails
 			rdb = redis.NewClient(&redis.Options{
-				Addr: cfg.RedisURL,
+				Addr:     cfg.RedisURL,
+				Password: os.Getenv("REDIS_PASSWORD"),
 			})
 		}
 	} else {

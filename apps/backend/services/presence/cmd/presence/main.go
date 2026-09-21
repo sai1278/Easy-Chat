@@ -40,16 +40,25 @@ func main() {
 	}
 
 	// 1. Initialize Redis Connection
+	var rdb *redis.Client
 	redisURL := cfg.RedisURL
 	if redisURL == "" {
 		redisURL = "localhost:6379"
 	}
-	rdb := redis.NewClient(&redis.Options{
-		Addr:         redisURL,
-		DialTimeout:  3 * time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
-	})
+	if opts, err := redis.ParseURL(redisURL); err == nil {
+		opts.DialTimeout = 3 * time.Second
+		opts.ReadTimeout = 2 * time.Second
+		opts.WriteTimeout = 2 * time.Second
+		rdb = redis.NewClient(opts)
+	} else {
+		rdb = redis.NewClient(&redis.Options{
+			Addr:         redisURL,
+			Password:     os.Getenv("REDIS_PASSWORD"),
+			DialTimeout:  3 * time.Second,
+			ReadTimeout:  2 * time.Second,
+			WriteTimeout: 2 * time.Second,
+		})
+	}
 
 	// Verify Redis connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

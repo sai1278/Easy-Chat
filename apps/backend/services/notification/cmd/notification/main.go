@@ -65,14 +65,29 @@ func main() {
 
 	// 2. Initialize Redis Client
 	var redisClient *redis.Client
+	redisURL := os.Getenv("REDIS_URL")
 	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr != "" {
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	if redisURL != "" {
+		if opts, err := redis.ParseURL(redisURL); err == nil {
+			redisClient = redis.NewClient(opts)
+			log.Info("Redis client connected via URL", "addr", opts.Addr)
+		} else {
+			redisClient = redis.NewClient(&redis.Options{
+				Addr:     redisURL,
+				Password: redisPassword,
+			})
+			log.Info("Redis client connected fallback")
+		}
+	} else if redisAddr != "" {
 		redisClient = redis.NewClient(&redis.Options{
-			Addr: redisAddr,
+			Addr:     redisAddr,
+			Password: redisPassword,
 		})
-		log.Info("Redis client connected", "addr", redisAddr)
+		log.Info("Redis client connected via ADDR", "addr", redisAddr)
 	} else {
-		log.Warn("REDIS_ADDR not set. Falling back to local in-memory queueing.")
+		log.Warn("REDIS_URL/REDIS_ADDR not set. Falling back to local in-memory queueing.")
 	}
 
 	// 3. Initialize Repositories and Adapters

@@ -60,8 +60,19 @@ resource "aws_instance" "easychat_server" {
               ufw allow 443/tcp
               ufw --force enable
 
+              # Configure 2GB Swap space on root EBS to prevent OOM panic on t3.medium
+              if [ ! -f /swapfile ]; then
+                fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+                chmod 600 /swapfile
+                mkswap /swapfile
+                swapon /swapfile
+                echo '/swapfile none swap sw 0 0' >> /etc/fstab
+                sysctl vm.swappiness=10
+                echo 'vm.swappiness=10' >> /etc/sysctl.d/99-easychat-swap.conf
+              fi
+
               # Create Easy Chat deployment directory structure
-              mkdir -p /opt/easychat/{docker,data,nginx/certs}
+              mkdir -p /opt/easychat/{docker,data,nginx/certs,scripts}
               chmod 750 /opt/easychat
 
               echo "Easy Chat host setup completed successfully at $(date)" > /opt/easychat/setup_complete.txt

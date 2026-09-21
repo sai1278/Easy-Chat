@@ -17,6 +17,8 @@ import (
 	sharedconfig "nearby/backend/shared/config"
 	"nearby/backend/shared/logger"
 	"nearby/backend/shared/tracing"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -66,7 +68,15 @@ func main() {
 	if redisURL == "" {
 		redisURL = "localhost:6379"
 	}
-	redisCache, err := cache.NewRedisCache(redisURL, "", 0)
+	addr := redisURL
+	password := os.Getenv("REDIS_PASSWORD")
+	dbNum := 0
+	if opts, err := redis.ParseURL(redisURL); err == nil {
+		addr = opts.Addr
+		password = opts.Password
+		dbNum = opts.DB
+	}
+	redisCache, err := cache.NewRedisCache(addr, password, dbNum)
 	if err != nil {
 		log.Error("Failed to connect to Redis", "err", err)
 		os.Exit(1)

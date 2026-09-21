@@ -69,7 +69,10 @@ func main() {
 	if opts, err := redis.ParseURL(redisURL); err == nil {
 		rdb = redis.NewClient(opts)
 	} else {
-		rdb = redis.NewClient(&redis.Options{Addr: redisURL})
+		rdb = redis.NewClient(&redis.Options{
+			Addr:     redisURL,
+			Password: os.Getenv("REDIS_PASSWORD"),
+		})
 	}
 	defer rdb.Close()
 	log.Info("Successfully connected to Redis in User Service")
