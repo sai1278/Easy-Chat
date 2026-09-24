@@ -132,10 +132,13 @@ func main() {
 	usecase := application.NewMediaUsecase(metaRepo, storeRepo, virusScanner)
 	handler := transport.NewMediaHandler(usecase)
 
-	// 5. Register HTTP endpoints
+	// 5. Register HTTP endpoints (both root and /api/v1/media/ prefixed paths from gateway)
 	http.HandleFunc("/upload", handler.UploadHandler)
 	http.HandleFunc("/download/", handler.DownloadRedirectHandler)
 	http.HandleFunc("/signed-upload-url", handler.SignedUploadURLHandler)
+	http.HandleFunc("/api/v1/media/upload", handler.UploadHandler)
+	http.HandleFunc("/api/v1/media/download/", handler.DownloadRedirectHandler)
+	http.HandleFunc("/api/v1/media/signed-upload-url", handler.SignedUploadURLHandler)
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
