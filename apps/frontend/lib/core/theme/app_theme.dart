@@ -1,32 +1,36 @@
 import 'package:flutter/material.dart';
-import 'clay_design_system.dart';
+import 'app_colors.dart';
 
+/// Centralized Material 3 Theme Configuration for Easy Chat
+///
+/// Restrained, modern Google-inspired visual styling with
+/// Primary Blue (#3B6FE0) and Soft Warm Off-White/Beige (#F8F7F3).
 class AppTheme {
   static ThemeData get lightTheme {
     const colorScheme = ColorScheme.light(
-      primary: ClayColors.accent,
-      onPrimary: Colors.white,
-      primaryContainer: ClayColors.accentLight,
-      onPrimaryContainer: ClayColors.accent,
-      secondary: ClayColors.textSecondary,
+      primary: AppColors.primary,
+      onPrimary: AppColors.textOnPrimary,
+      primaryContainer: AppColors.primaryLight,
+      onPrimaryContainer: AppColors.primary,
+      secondary: AppColors.textSecondary,
       onSecondary: Colors.white,
-      secondaryContainer: ClayColors.surfaceMuted,
-      onSecondaryContainer: ClayColors.textPrimary,
-      surface: ClayColors.card,
-      onSurface: ClayColors.textPrimary,
-      onSurfaceVariant: ClayColors.textSecondary,
-      outline: ClayColors.borderSoft,
-      outlineVariant: Color(0x18000000),
-      error: ClayColors.danger,
+      secondaryContainer: AppColors.surfaceVariant,
+      onSecondaryContainer: AppColors.textPrimary,
+      surface: AppColors.surface,
+      onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
+      outline: AppColors.border,
+      outlineVariant: AppColors.borderSubtle,
+      error: AppColors.danger,
       onError: Colors.white,
-      errorContainer: ClayColors.dangerSoft,
-      onErrorContainer: ClayColors.danger,
+      errorContainer: AppColors.dangerSoft,
+      onErrorContainer: AppColors.danger,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: ClayColors.canvas,
+      scaffoldBackgroundColor: AppColors.background,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
@@ -38,104 +42,113 @@ class AppTheme {
       ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
-        backgroundColor: ClayColors.canvas,
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: IconThemeData(color: ClayColors.textPrimary),
+        iconTheme: IconThemeData(color: AppColors.icon),
         titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: ClayColors.textPrimary,
-          letterSpacing: -0.4,
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.2,
         ),
       ),
       cardTheme: CardTheme(
-        color: ClayColors.card,
+        color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: ClayColors.borderSoft),
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 0.8),
         ),
         clipBehavior: Clip.antiAlias,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: ClayColors.textPrimary,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: AppColors.textPrimary,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         showDragHandle: true,
-        backgroundColor: ClayColors.card,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
       ),
       dialogTheme: DialogTheme(
-        backgroundColor: ClayColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        elevation: 4,
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 2,
         titleTextStyle: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: ClayColors.textPrimary,
-          letterSpacing: -0.3,
+          fontSize: 17,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.2,
         ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: const BorderSide(color: ClayColors.borderSoft),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        backgroundColor: ClayColors.surfaceSubtle,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        side: const BorderSide(color: AppColors.border, width: 0.8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        backgroundColor: AppColors.surface,
+        labelStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary,
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
-        backgroundColor: ClayColors.canvas,
-        indicatorColor: ClayColors.accentLight,
+        backgroundColor: AppColors.background,
+        indicatorColor: AppColors.primaryLight,
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ClayColors.textPrimary),
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: ClayColors.accent,
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.1),
           elevation: 0,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: ClayColors.textPrimary,
-          side: const BorderSide(color: ClayColors.borderSoft, width: 1.2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          foregroundColor: AppColors.textPrimary,
+          side: const BorderSide(color: AppColors.border, width: 0.8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: ClayColors.surfaceSubtle,
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: ClayColors.borderSoft),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.border, width: 0.8),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: ClayColors.borderSoft),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.border, width: 0.8),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: ClayColors.accent, width: 1.8),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        labelStyle: const TextStyle(color: ClayColors.textSecondary, fontSize: 14),
-        hintStyle: const TextStyle(color: ClayColors.textTertiary, fontSize: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
+        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w400),
       ),
     );
   }
 
-  static ThemeData get darkTheme => lightTheme; // Brand consistency: Clay look is signature #F0EEE9
+  static ThemeData get darkTheme => lightTheme; // Clean consistent visual system
 }

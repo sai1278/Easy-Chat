@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/clay_design_system.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -25,28 +26,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: ClayColors.cardSurface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.border, width: 0.8),
+          ),
           title: Text(
             title,
-            style: TextStyle(fontWeight: FontWeight.w800, color: ClayColors.textPrimary),
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 16,
+              color: AppColors.textPrimary,
+            ),
           ),
           content: TextField(
             controller: controller,
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Enter new $title',
               filled: true,
-              fillColor: ClayColors.background,
+              fillColor: AppColors.background,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: ClayColors.borderSubtle),
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: ClayColors.textSecondary)),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
             ),
             ClayButton(
               label: 'Save',
@@ -65,17 +83,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: ClayColors.cardSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Log Out', style: TextStyle(fontWeight: FontWeight.w800, color: ClayColors.textPrimary)),
-        content: Text('Are you sure you want to log out of Easy Chat?', style: TextStyle(color: ClayColors.textSecondary)),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 0.8),
+        ),
+        title: const Text(
+          'Log out',
+          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16, color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Are you sure you want to log out of Easy Chat?',
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: ClayColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
           ),
           ClayButton(
-            label: 'Log Out',
+            label: 'Log out',
             onPressed: () => Navigator.pop(context, true),
           ),
         ],
@@ -94,25 +121,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: ClayColors.cardSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Delete Account', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
-        content: Text(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 0.8),
+        ),
+        title: const Text(
+          'Delete account',
+          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16, color: AppColors.danger),
+        ),
+        content: const Text(
           'This action is permanent and will delete your profile data from Easy Chat.',
-          style: TextStyle(color: ClayColors.textSecondary),
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: ClayColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: AppColors.danger,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete Account'),
+            child: const Text('Delete account', style: TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -120,7 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirm == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account deletion request initiated.')),
+        const SnackBar(content: Text('Account deletion request initiated')),
       );
     }
   }
@@ -132,60 +165,72 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final profileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      backgroundColor: ClayColors.background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: ClayColors.background,
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: ClayColors.cardSurface,
+              color: AppColors.surface,
               shape: BoxShape.circle,
-              boxShadow: ClayShadows.button,
+              border: Border.all(color: AppColors.border, width: 0.8),
             ),
-            child: Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: ClayColors.textPrimary),
+            child: const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: AppColors.icon),
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: const Text(
           'Settings',
           style: TextStyle(
-            color: ClayColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.5,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w500,
+            fontSize: 18,
+            letterSpacing: -0.2,
           ),
         ),
       ),
       body: profileAsync.when(
-        loading: () => Center(child: CircularProgressIndicator(color: ClayColors.accent)),
-        error: (err, _) => Center(child: Text('Error loading settings: $err')),
+        loading: () => const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
+        ),
+        error: (err, _) => Center(
+          child: Text('Error loading settings: $err', style: const TextStyle(color: AppColors.textSecondary)),
+        ),
         data: (profile) {
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             children: [
-              // User Profile Clay Card
+              // 1. Profile card at the top: avatar, display name, handle, outlined Edit button
               ClayCard(
-                padding: const EdgeInsets.all(18.0),
+                borderRadius: 12.0,
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Container(
-                          width: 56,
-                          height: 56,
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surfaceVariant,
                             shape: BoxShape.circle,
-                            boxShadow: ClayShadows.card,
-                            border: Border.all(color: ClayColors.borderSubtle),
+                            border: Border.all(color: AppColors.border, width: 0.8),
                           ),
                           child: ClipOval(
                             child: profile.avatarUrl.isNotEmpty
-                                ? Image.network(profile.avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildAvatarInitial(profile))
+                                ? Image.network(
+                                    profile.avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _buildAvatarInitial(profile),
+                                  )
                                 : _buildAvatarInitial(profile),
                           ),
                         ),
@@ -196,39 +241,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             children: [
                               Text(
                                 profile.displayName.isNotEmpty ? profile.displayName : profile.username,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 17,
-                                  color: ClayColors.textPrimary,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
                                   letterSpacing: -0.2,
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 '@${profile.username}',
-                                style: TextStyle(fontSize: 13, color: ClayColors.textSecondary),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         ClaySecondaryButton(
                           label: 'Edit',
-                          icon: Icons.edit_rounded,
+                          icon: Icons.edit_outlined,
                           onPressed: () => context.push('/profile'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Divider(color: ClayColors.borderSubtle),
+                    const Divider(height: 1, color: AppColors.divider),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.badge_outlined, color: ClayColors.accent, size: 20),
-                      title: Text('Display Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ClayColors.textPrimary)),
+                      leading: const Icon(Icons.badge_outlined, color: AppColors.icon, size: 20),
+                      title: const Text(
+                        'Display name',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+                      ),
                       subtitle: Text(
                         profile.displayName.isNotEmpty ? profile.displayName : 'Not set',
-                        style: TextStyle(fontSize: 13, color: ClayColors.textSecondary),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
                       ),
                       onTap: () => _editProfileField(
-                        title: 'Display Name',
+                        title: 'Display name',
                         initialValue: profile.displayName,
                         onSave: (val) {
                           ref.read(userProfileProvider.notifier).updateProfile(
@@ -241,11 +294,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.info_outline_rounded, color: ClayColors.accent, size: 20),
-                      title: Text('Bio', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ClayColors.textPrimary)),
+                      leading: const Icon(Icons.info_outline_rounded, color: AppColors.icon, size: 20),
+                      title: const Text(
+                        'Bio',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+                      ),
                       subtitle: Text(
                         profile.bio.isNotEmpty ? profile.bio : 'No bio added',
-                        style: TextStyle(fontSize: 13, color: ClayColors.textSecondary),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
                       ),
                       onTap: () => _editProfileField(
                         title: 'Bio',
@@ -264,109 +320,112 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Spatial Privacy & Discovery Section
-              const _SectionHeader(title: 'Privacy & Visibility', icon: Icons.visibility_outlined),
+              // 2. Privacy and visibility: Card containing two toggle rows
+              const _SectionHeader(title: 'Privacy and visibility', icon: Icons.visibility_outlined),
               ClayCard(
+                borderRadius: 12.0,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   children: [
-                    SwitchListTile(
+                    _ToggleRow(
+                      icon: Icons.radar_rounded,
+                      title: 'Discoverable nearby',
+                      description: 'Allow nearby people to discover your profile within 1 km',
                       value: settings.discoverable,
-                      activeColor: ClayColors.accent,
                       onChanged: (val) => settingsNotifier.toggleDiscoverable(val),
-                      title: Text('Discoverable Nearby', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ClayColors.textPrimary)),
-                      subtitle: Text('Allow nearby people to discover your profile within 1 km.', style: TextStyle(fontSize: 12, color: ClayColors.textSecondary)),
-                      secondary: Icon(Icons.radar_rounded, color: ClayColors.accent),
                     ),
-                    Divider(height: 1, color: ClayColors.borderSubtle),
-                    SwitchListTile(
+                    const Divider(height: 1, color: AppColors.divider),
+                    _ToggleRow(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Secure local storage',
+                      description: 'Keep your conversations encrypted on device',
                       value: settings.encryptLocalSessions,
-                      activeColor: ClayColors.accent,
                       onChanged: (val) => settingsNotifier.toggleEncryptSessions(val),
-                      title: Text('Secure Local Storage', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ClayColors.textPrimary)),
-                      subtitle: Text('Keep your conversations encrypted on device.', style: TextStyle(fontSize: 12, color: ClayColors.textSecondary)),
-                      secondary: Icon(Icons.lock_outline_rounded, color: ClayColors.accent),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
-              // Notifications Section
+              // 3. Notifications: Card containing two toggle rows
               const _SectionHeader(title: 'Notifications', icon: Icons.notifications_outlined),
               ClayCard(
+                borderRadius: 12.0,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   children: [
-                    SwitchListTile(
+                    _ToggleRow(
+                      icon: Icons.sensors_rounded,
+                      title: 'Nearby alerts',
+                      description: 'Get notified when someone enters your nearby area',
                       value: settings.notifyNearbyPeers,
-                      activeColor: ClayColors.accent,
                       onChanged: (val) => settingsNotifier.toggleNotifyNearby(val),
-                      title: Text('Nearby Alerts', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ClayColors.textPrimary)),
-                      subtitle: Text('Get notified when someone enters your nearby area.', style: TextStyle(fontSize: 12, color: ClayColors.textSecondary)),
-                      secondary: Icon(Icons.sensors_rounded, color: ClayColors.accent),
                     ),
-                    Divider(height: 1, color: ClayColors.borderSubtle),
-                    SwitchListTile(
+                    const Divider(height: 1, color: AppColors.divider),
+                    _ToggleRow(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'Chat notifications',
+                      description: 'Receive alerts for incoming messages',
                       value: settings.notifyChatMessages,
-                      activeColor: ClayColors.accent,
                       onChanged: (val) => settingsNotifier.toggleNotifyChat(val),
-                      title: Text('Chat Notifications', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ClayColors.textPrimary)),
-                      subtitle: Text('Receive alerts for incoming messages.', style: TextStyle(fontSize: 12, color: ClayColors.textSecondary)),
-                      secondary: Icon(Icons.chat_bubble_outline_rounded, color: ClayColors.accent),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
-              // About Section with Official Easy Chat Brand
+              // 4. About Easy Chat
               const _SectionHeader(title: 'About Easy Chat', icon: Icons.info_outline_rounded),
               ClayCard(
-                padding: const EdgeInsets.all(18.0),
+                borderRadius: 12.0,
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         shape: BoxShape.circle,
-                        boxShadow: ClayShadows.card,
+                        border: Border.all(color: AppColors.border, width: 0.8),
                       ),
                       padding: const EdgeInsets.all(6),
-                      child: const EasyChatLogoMark(size: 30),
+                      child: const EasyChatLogoMark(size: 28),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
+                    const SizedBox(width: 12),
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Easy Chat',
+                            'Easy chat',
                             style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: ClayColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             'Private, ephemeral nearby messaging',
-                            style: TextStyle(fontSize: 12, color: ClayColors.textSecondary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    ClayBadge(label: 'v1.0.0'),
+                    const ClayBadge(label: 'v1.0.0'),
                   ],
                 ),
               ),
               const SizedBox(height: 28),
 
-              // Account Actions Section
+              // 5. Account Actions Section
               ClaySecondaryButton(
-                label: 'Log Out',
+                label: 'Log out',
                 icon: Icons.logout_rounded,
                 onPressed: _handleLogout,
               ),
@@ -374,8 +433,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Center(
                 child: TextButton.icon(
                   onPressed: _handleDeleteAccount,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFDC2626)),
-                  label: const Text('Delete Account', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                  label: const Text(
+                    'Delete account',
+                    style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w500, fontSize: 13),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -392,10 +454,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         profile.displayName.isNotEmpty
             ? profile.displayName[0].toUpperCase()
             : (profile.username.isNotEmpty ? profile.username[0].toUpperCase() : 'U'),
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-          color: ClayColors.accent,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary,
         ),
       ),
     );
@@ -414,16 +476,74 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: ClayColors.accent),
+          Icon(icon, size: 16, color: AppColors.icon),
           const SizedBox(width: 8),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: ClayColors.textPrimary,
-              letterSpacing: -0.2,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.1,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.icon, size: 20),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          AppToggle(
+            value: value,
+            onChanged: onChanged,
           ),
         ],
       ),

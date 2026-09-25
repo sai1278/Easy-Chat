@@ -8,6 +8,7 @@ import 'core/navigation/app_router.dart';
 import 'core/network/dio_client.dart';
 import 'core/network/environment.dart';
 import 'core/network/websocket_client.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/battery_optimizer.dart';
 import 'features/chat/data/chat_repository.dart';
@@ -138,13 +139,16 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _batteryOptimizer.setLifecycleState(state);
     
-    // Reduce WebSocket heartbeat ping chatter when backgrounded (50s instead of 30s)
     try {
       final ws = ref.read(webSocketClientProvider);
-      if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-        ws.setHeartbeatInterval(const Duration(seconds: 50));
-      } else {
-        ws.setHeartbeatInterval(const Duration(seconds: 30));
+      if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+        // Gracefully close WebSocket with normal closure code 1000 when backgrounded/detached
+        ws.disconnect(closeCode: 1000);
+      } else if (state == AppLifecycleState.resumed) {
+        // Re-establish connection when returning to foreground
+        ws.resume();
+        final repo = ref.read(chatRepositoryProvider);
+        repo.ensureConnected();
       }
     } catch (_) {}
   }
@@ -184,7 +188,7 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -192,26 +196,27 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'New Message',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        'New message',
+                        style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
                       ),
                       Text(
                         text,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(fontWeight: FontWeight.w400, color: Colors.white70),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.teal.shade800,
+            backgroundColor: AppColors.textPrimary,
             duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
               label: 'View',
-              textColor: Colors.amber,
+              textColor: const Color(0xFF93B4F6),
               onPressed: () {
                 AppRouter.router.go('/chat/${msg.roomId}?peerId=${msg.senderId}&status=ACCEPTED');
               },
@@ -247,27 +252,28 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Chat Request from ${req.senderDisplayName ?? req.senderUsername ?? "Nearby User"}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          'Chat request from ${req.senderDisplayName ?? req.senderUsername ?? "Nearby user"}',
+                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
                         ),
                         if (req.senderBio != null && req.senderBio!.isNotEmpty)
                           Text(
                             req.senderBio!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70),
                           ),
                       ],
                     ),
                   ),
                 ],
               ),
-              backgroundColor: Colors.indigo.shade800,
+              backgroundColor: AppColors.textPrimary,
               duration: const Duration(seconds: 8),
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
                 label: 'Accept',
-                textColor: Colors.greenAccent,
+                textColor: const Color(0xFF93B4F6),
                 onPressed: () async {
                   try {
                     await chatRepo.acceptChatRequest(req.id);
@@ -285,22 +291,23 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+                  const Icon(Icons.check_circle_outline_rounded, color: AppColors.success),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Chat request accepted by ${req.senderDisplayName ?? "Peer"}! You can now chat.',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      'Chat request accepted by ${req.senderDisplayName ?? "Peer"}. You can now chat.',
+                      style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
                     ),
                   ),
                 ],
               ),
-              backgroundColor: Colors.teal.shade900,
+              backgroundColor: AppColors.textPrimary,
               duration: const Duration(seconds: 6),
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
-                label: 'Open Chat',
-                textColor: Colors.amber,
+                label: 'Open chat',
+                textColor: const Color(0xFF93B4F6),
                 onPressed: () {
                   if (req.roomId != null && req.roomId!.isNotEmpty) {
                     AppRouter.router.push('/chat/${req.roomId}?peerId=${req.recipientId}&status=ACCEPTED');
@@ -316,19 +323,20 @@ class _NearbyConnectAppState extends ConsumerState<NearbyConnectApp>
             SnackBar(
               content: const Row(
                 children: [
-                  Icon(Icons.cancel_rounded, color: Colors.redAccent),
+                  Icon(Icons.cancel_outlined, color: Colors.white),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Chat request denied.',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      'Chat request declined.',
+                      style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
                     ),
                   ),
                 ],
               ),
-              backgroundColor: Colors.red.shade900,
+              backgroundColor: AppColors.danger,
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }

@@ -1,109 +1,79 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 
-/// Comprehensive Clay-Inspired Design System for Easy Chat
+/// Comprehensive Design System for Easy Chat
 /// 
-/// Embodying Apple-level simplicity, Google-quality product polish,
-/// and Linear-level precision with tactile clay surfaces.
+/// Restrained, modern Google/Material-inspired visual system
+/// centered around Primary Blue (#3B6FE0) and Soft Warm Off-White/Beige (#F8F7F3).
 class ClayColors {
   // Brand Canvas & Neutral Surfaces
-  static const Color canvas = Color(0xFFF0EEE9);
-  static const Color background = canvas;
-  static const Color card = Color(0xFFFFFFFF);
-  static const Color cardSurface = card;
-  static const Color cardElevated = Color(0xFFFDFCFA);
-  static const Color surfaceMuted = Color(0xFFE8E5DF);
-  static const Color surfaceSubtle = Color(0xFFF5F3EE);
+  static const Color canvas = AppColors.background;
+  static const Color background = AppColors.background;
+  static const Color card = AppColors.surface;
+  static const Color cardSurface = AppColors.surface;
+  static const Color cardElevated = AppColors.surface;
+  static const Color surfaceMuted = AppColors.surfaceVariant;
+  static const Color surfaceSubtle = AppColors.surfaceSubtle;
 
-  // Primary Brand Accent
-  static const Color accent = Color(0xFFF15596);
-  static const Color accentHover = Color(0xFFE24386);
-  static const Color accentLight = Color(0xFFFDEBF3);
-  static const Color accentGlow = Color(0x40F15596);
+  // Primary Brand Accent (Blue #3B6FE0)
+  static const Color accent = AppColors.primary;
+  static const Color accentHover = AppColors.primaryPressed;
+  static const Color accentLight = AppColors.primaryLight;
+  static const Color accentGlow = Color(0x263B6FE0);
 
-  // Typography Hierarchy
-  static const Color textPrimary = Color(0xFF1E1D1B);
-  static const Color textSecondary = Color(0xFF7A7873);
-  static const Color textTertiary = Color(0xFFA3A09A);
-  static const Color textOnAccent = Color(0xFFFFFFFF);
+  // Typography Hierarchy (Regular 400 & Medium 500)
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
+  static const Color textTertiary = AppColors.textMuted;
+  static const Color textOnAccent = AppColors.textOnPrimary;
 
   // Semantic Status Tones
-  static const Color success = Color(0xFF22A06B);
-  static const Color successSoft = Color(0xFFEAF8F1);
-  static const Color danger = Color(0xFFE5484D);
-  static const Color dangerSoft = Color(0xFFFDF0F1);
-  static const Color warning = Color(0xFFE09520);
-  static const Color warningSoft = Color(0xFFFEF7EC);
+  static const Color success = AppColors.success;
+  static const Color successSoft = AppColors.successSoft;
+  static const Color danger = AppColors.danger;
+  static const Color dangerSoft = AppColors.dangerSoft;
+  static const Color warning = AppColors.warning;
+  static const Color warningSoft = AppColors.warningSoft;
 
-  // Micro-borders & Highlights
-  static const Color borderSoft = Color(0x12000000);
-  static const Color borderSubtle = borderSoft;
-  static const Color borderHighlight = Color(0x66FFFFFF);
+  // Micro-borders & Outlines (subtle 0.5–1px)
+  static const Color borderSoft = AppColors.border;
+  static const Color borderSubtle = AppColors.borderSubtle;
+  static const Color borderHighlight = Colors.transparent;
+
+  // Rare Accent Highlight (Pink / Magenta for "New here" chip only)
+  static const Color pinkHighlight = AppColors.pinkHighlight;
+  static const Color pinkHighlightBackground = AppColors.pinkHighlightBackground;
 }
 
 class ClayShadows {
-  /// Soft ambient clay card elevation
+  /// Subtle ambient card shadow (no heavy shadows or excessive elevation)
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x0D443D36),
-      blurRadius: 20,
-      offset: Offset(0, 8),
-      spreadRadius: -2,
-    ),
-    BoxShadow(
-      color: Color(0x08000000),
-      blurRadius: 6,
-      offset: Offset(0, 2),
+      color: Color(0x06000000),
+      blurRadius: 4,
+      offset: Offset(0, 1),
     ),
   ];
 
-  /// Elevated card for prominent interaction (Incoming Request banner, modals)
+  /// Elevated card for prominent modals/dialogs
   static const List<BoxShadow> cardElevated = [
     BoxShadow(
-      color: Color(0x14443D36),
-      blurRadius: 26,
-      offset: Offset(0, 10),
-      spreadRadius: -2,
-    ),
-    BoxShadow(
       color: Color(0x0A000000),
       blurRadius: 8,
-      offset: Offset(0, 3),
-    ),
-  ];
-
-  /// Vibrant tactile primary button shadow
-  static const List<BoxShadow> buttonAccent = [
-    BoxShadow(
-      color: ClayColors.accentGlow,
-      blurRadius: 16,
-      offset: Offset(0, 6),
-      spreadRadius: 0,
-    ),
-    BoxShadow(
-      color: Color(0x15000000),
-      blurRadius: 4,
       offset: Offset(0, 2),
     ),
   ];
 
-  /// Neutral secondary button shadow
-  static const List<BoxShadow> buttonNeutral = [
-    BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 8,
-      offset: Offset(0, 3),
-    ),
-    BoxShadow(
-      color: Color(0x40FFFFFF),
-      blurRadius: 2,
-      offset: Offset(0, -1),
-    ),
-  ];
+  /// Primary button has NO shadow
+  static const List<BoxShadow> buttonAccent = [];
 
-  static const List<BoxShadow> button = buttonNeutral;
+  /// Secondary button has NO shadow
+  static const List<BoxShadow> buttonNeutral = [];
+
+  static const List<BoxShadow> button = [];
 }
 
-/// Soft clay-style elevated card container
+/// Clean card container with 12px radius and subtle neutral border
 class ClayCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -117,9 +87,9 @@ class ClayCard extends StatelessWidget {
   const ClayCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(16),
     this.margin,
-    this.borderRadius = 24.0,
+    this.borderRadius = 12.0,
     this.color,
     this.shadows,
     this.border,
@@ -134,16 +104,16 @@ class ClayCard extends StatelessWidget {
     } else if (borderRadius is num) {
       resolvedRadius = BorderRadius.circular((borderRadius as num).toDouble());
     } else {
-      resolvedRadius = BorderRadius.circular(24.0);
+      resolvedRadius = BorderRadius.circular(12.0);
     }
 
     Widget cardContent = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? ClayColors.card,
+        color: color ?? AppColors.surface,
         borderRadius: resolvedRadius,
         boxShadow: shadows ?? ClayShadows.card,
-        border: border ?? Border.all(color: ClayColors.borderSoft, width: 1),
+        border: border ?? Border.all(color: AppColors.border, width: 0.8),
       ),
       child: child,
     );
@@ -164,7 +134,7 @@ class ClayCard extends StatelessWidget {
   }
 }
 
-/// Tactile primary button with smooth micro-interaction
+/// Primary button: Solid #3B6FE0, white text, 8px radius, no shadow, no gradient
 class ClayButton extends StatefulWidget {
   final String label;
   final IconData? icon;
@@ -184,8 +154,8 @@ class ClayButton extends StatefulWidget {
     this.isLoading = false,
     this.backgroundColor,
     this.foregroundColor,
-    this.borderRadius = 18.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+    this.borderRadius = 8.0,
+    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     this.width,
   });
 
@@ -199,19 +169,19 @@ class _ClayButtonState extends State<ClayButton> {
   @override
   Widget build(BuildContext context) {
     final bool isEnabled = widget.onPressed != null && !widget.isLoading;
-    final bg = widget.backgroundColor ?? ClayColors.accent;
-    final fg = widget.foregroundColor ?? ClayColors.textOnAccent;
+    final bg = widget.backgroundColor ?? AppColors.primary;
+    final fg = widget.foregroundColor ?? AppColors.textOnPrimary;
+    final activeBg = _isPressed ? AppColors.primaryPressed : bg;
 
     return AnimatedScale(
-      scale: _isPressed ? 0.97 : 1.0,
-      duration: const Duration(milliseconds: 100),
+      scale: _isPressed ? 0.98 : 1.0,
+      duration: const Duration(milliseconds: 80),
       curve: Curves.easeOutCubic,
       child: Container(
         width: widget.width,
         decoration: BoxDecoration(
-          color: isEnabled ? bg : bg.withOpacity(0.4),
+          color: isEnabled ? activeBg : AppColors.disabled,
           borderRadius: BorderRadius.circular(widget.borderRadius),
-          boxShadow: isEnabled ? ClayShadows.buttonAccent : null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -226,10 +196,10 @@ class _ClayButtonState extends State<ClayButton> {
               child: widget.isLoading
                   ? Center(
                       child: SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
+                          strokeWidth: 2.0,
                           color: fg,
                         ),
                       ),
@@ -239,16 +209,16 @@ class _ClayButtonState extends State<ClayButton> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (widget.icon != null) ...[
-                          Icon(widget.icon, size: 18, color: fg),
-                          const SizedBox(width: 8),
+                          Icon(widget.icon, size: 16, color: fg),
+                          const SizedBox(width: 6),
                         ],
                         Text(
                           widget.label,
                           style: TextStyle(
                             color: fg,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
                           ),
                         ),
                       ],
@@ -261,7 +231,7 @@ class _ClayButtonState extends State<ClayButton> {
   }
 }
 
-/// Tactile neutral secondary button (for Deny, Cancel, View)
+/// Secondary button: Transparent background, neutral outline, 8px radius, medium-weight text
 class ClaySecondaryButton extends StatefulWidget {
   final String label;
   final IconData? icon;
@@ -276,8 +246,8 @@ class ClaySecondaryButton extends StatefulWidget {
     this.icon,
     required this.onPressed,
     this.textColor,
-    this.borderRadius = 16.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+    this.borderRadius = 8.0,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
   });
 
   @override
@@ -289,17 +259,16 @@ class _ClaySecondaryButtonState extends State<ClaySecondaryButton> {
 
   @override
   Widget build(BuildContext context) {
-    final fg = widget.textColor ?? ClayColors.textPrimary;
+    final fg = widget.textColor ?? AppColors.textPrimary;
 
     return AnimatedScale(
-      scale: _isPressed ? 0.97 : 1.0,
-      duration: const Duration(milliseconds: 100),
+      scale: _isPressed ? 0.98 : 1.0,
+      duration: const Duration(milliseconds: 80),
       child: Container(
         decoration: BoxDecoration(
-          color: ClayColors.surfaceMuted,
+          color: _isPressed ? AppColors.surfaceVariant : AppColors.surface,
           borderRadius: BorderRadius.circular(widget.borderRadius),
-          boxShadow: ClayShadows.buttonNeutral,
-          border: Border.all(color: ClayColors.borderSoft),
+          border: Border.all(color: AppColors.border, width: 0.8),
         ),
         child: Material(
           color: Colors.transparent,
@@ -314,15 +283,15 @@ class _ClaySecondaryButtonState extends State<ClaySecondaryButton> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (widget.icon != null) ...[
-                    Icon(widget.icon, size: 16, color: fg),
+                    Icon(widget.icon, size: 15, color: fg),
                     const SizedBox(width: 6),
                   ],
                   Text(
                     widget.label,
                     style: TextStyle(
                       color: fg,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -335,7 +304,9 @@ class _ClaySecondaryButtonState extends State<ClaySecondaryButton> {
   }
 }
 
-/// Tactile pill badge for clean distance & status presentation
+/// One consistent chip style across the application
+/// Transparent/white background, thin neutral-gray border, small rounded rectangle, gray text
+/// Rare pink highlight only for "New here" badge
 class ClayBadge extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -356,31 +327,36 @@ class ClayBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = backgroundColor ?? (isHighlighted ? ClayColors.accentLight : ClayColors.surfaceSubtle);
-    final fg = textColor ?? (isHighlighted ? ClayColors.accent : ClayColors.textPrimary);
+    final bg = backgroundColor ??
+        (isHighlighted ? AppColors.pinkHighlightBackground : AppColors.surface);
+    final fg = textColor ??
+        (isHighlighted ? AppColors.pinkHighlight : AppColors.textSecondary);
+    final border = isHighlighted
+        ? Border.all(color: AppColors.pinkHighlight.withOpacity(0.3), width: 0.8)
+        : Border.all(color: AppColors.border, width: 0.8);
     final ic = iconColor ?? fg;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ClayColors.borderSoft),
+        borderRadius: BorderRadius.circular(6),
+        border: border,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 13, color: ic),
-            const SizedBox(width: 5),
+            Icon(icon, size: 12, color: ic),
+            const SizedBox(width: 4),
           ],
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
               color: fg,
-              letterSpacing: -0.2,
+              letterSpacing: -0.1,
             ),
           ),
         ],
@@ -389,9 +365,69 @@ class ClayBadge extends StatelessWidget {
   }
 }
 
+/// Standalone Toggle System (38 × 22 px)
+/// OFF: neutral gray track (#D4D1CA), white thumb
+/// ON: #3B6FE0 track, white thumb, thumb moves to right
+class AppToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  const AppToggle({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const width = 38.0;
+    const height = 22.0;
+    const thumbSize = 16.0;
+    const padding = 3.0;
+
+    final isEnabled = onChanged != null;
+    final trackColor = value
+        ? (isEnabled ? AppColors.toggleTrackOn : AppColors.disabled)
+        : (isEnabled ? AppColors.toggleTrackOff : AppColors.disabled.withOpacity(0.6));
+
+    return GestureDetector(
+      onTap: isEnabled ? () => onChanged!(!value) : null,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(height / 2),
+          color: trackColor,
+        ),
+        padding: const EdgeInsets.all(padding),
+        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: thumbSize,
+          height: thumbSize,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.toggleThumb,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x1A000000),
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Official Easy Chat Brand Mark
 /// 
-/// Renders the official compass arrow mark with orbital ring
+/// Renders the official compass arrow mark with orbital ring.
+/// The original logo asset is strictly preserved without modification.
 class EasyChatLogoMark extends StatelessWidget {
   final double size;
   final Color? ringColor;
@@ -409,21 +445,24 @@ class EasyChatLogoMark extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: Image.asset(
-        'assets/images/easy_chat_logo.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // Elegant vector canvas fallback
-          return CustomPaint(
-            size: Size(size, size),
-            painter: _EasyChatVectorPainter(
-              ringColor: ringColor ?? const Color(0xFF2C64E8),
-              arrowColor: arrowColor ?? ClayColors.textPrimary,
-            ),
-          );
-        },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.22),
+        child: Image.asset(
+          'assets/images/easy_chat_logo.png',
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            // Elegant vector canvas fallback
+            return CustomPaint(
+              size: Size(size, size),
+              painter: _EasyChatVectorPainter(
+                ringColor: ringColor ?? AppColors.primary,
+                arrowColor: arrowColor ?? AppColors.surface,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

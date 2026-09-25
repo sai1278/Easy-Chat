@@ -13,6 +13,7 @@ import '../../chat/presentation/chat_controller.dart';
 import '../../chat/domain/chat_request.dart';
 import '../data/nearby_repository.dart';
 import '../domain/proximity_user.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/clay_design_system.dart';
 import '../../../main.dart';
 
@@ -497,21 +498,21 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: ClayColors.background,
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        title: Row(
+        title: const Row(
           children: [
-            const EasyChatLogoMark(size: 32),
-            const SizedBox(width: 10),
+            EasyChatLogoMark(size: 28),
+            SizedBox(width: 10),
             Text(
-              'Easy Chat',
+              'Easy chat',
               style: TextStyle(
-                color: ClayColors.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: 20,
-                letterSpacing: -0.5,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                letterSpacing: -0.2,
               ),
             ),
           ],
@@ -521,11 +522,11 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: ClayColors.cardSurface,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
-                boxShadow: ClayShadows.button,
+                border: Border.all(color: AppColors.border, width: 0.8),
               ),
-              child: Icon(Icons.sync_rounded, size: 18, color: ClayColors.textSecondary),
+              child: const Icon(Icons.sync_rounded, size: 16, color: AppColors.icon),
             ),
             tooltip: 'Refresh',
             onPressed: () => _initializeLocationAndDiscovery(),
@@ -534,24 +535,24 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: ClayColors.cardSurface,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
-                boxShadow: ClayShadows.button,
+                border: Border.all(color: AppColors.border, width: 0.8),
               ),
-              child: Icon(Icons.person_outline_rounded, size: 18, color: ClayColors.textSecondary),
+              child: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.icon),
             ),
-            tooltip: 'My Profile',
+            tooltip: 'My profile',
             onPressed: () => context.push('/profile'),
           ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: ClayColors.cardSurface,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
-                boxShadow: ClayShadows.button,
+                border: Border.all(color: AppColors.border, width: 0.8),
               ),
-              child: Icon(Icons.settings_outlined, size: 18, color: ClayColors.textSecondary),
+              child: const Icon(Icons.settings_outlined, size: 16, color: AppColors.icon),
             ),
             tooltip: 'Settings',
             onPressed: () => context.push('/settings'),
@@ -559,10 +560,10 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
           const SizedBox(width: 8),
         ],
       ),
-      backgroundColor: ClayColors.background,
+      backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Premium Clay Radar Discovery Banner
+          // Radar Discovery Banner
           _RadarHeaderBanner(
             animationController: _radarAnimationController,
             currentPosition: _currentPosition,
@@ -572,19 +573,18 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                Text(
-                  'People Nearby',
+                const Text(
+                  'People nearby',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: ClayColors.textPrimary,
-                    letterSpacing: -0.3,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const Spacer(),
                 ClayBadge(
                   label: '${users.length} nearby',
-                  isHighlighted: users.isNotEmpty,
                 ),
               ],
             ),
@@ -612,7 +612,9 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
                                 ),
                                 const SizedBox(height: 16),
                               ],
-                              ...users.map((user) {
+                              ...users.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final user = entry.value;
                                 final unreadCounts = ref.watch(unreadCountsProvider);
                                 final unreadCount = unreadCounts[user.userId] ?? 0;
                                 final req = _peerRequestStatuses[user.userId];
@@ -626,6 +628,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
                                   request: req,
                                   currentUserId: _myUserId,
                                   isProcessing: isProcessing,
+                                  isNewHere: index == 0,
                                   onTapChat: () => _startChatWithUser(user),
                                   onSendRequest: () => _sendChatRequest(user),
                                   onAccept: req != null ? () => _acceptRequest(req) : null,
@@ -653,15 +656,16 @@ class _RadarHeaderBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ClayCard(
-        padding: const EdgeInsets.all(16),
+        borderRadius: 12.0,
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             // Radar Animation Ripple Circle with Official Logo center
             SizedBox(
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               child: AnimatedBuilder(
                 animation: animationController,
                 builder: (context, child) {
@@ -669,19 +673,19 @@ class _RadarHeaderBanner extends StatelessWidget {
                     child: CustomPaint(
                       painter: _RadarRipplePainter(
                         progress: animationController.value,
-                        color: ClayColors.accent,
+                        color: AppColors.primary,
                       ),
                       child: Center(
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             shape: BoxShape.circle,
-                            boxShadow: ClayShadows.card,
+                            border: Border.all(color: AppColors.border, width: 0.8),
                           ),
-                          padding: const EdgeInsets.all(6),
-                          child: const EasyChatLogoMark(size: 26),
+                          padding: const EdgeInsets.all(5),
+                          child: const EasyChatLogoMark(size: 24),
                         ),
                       ),
                     ),
@@ -689,7 +693,7 @@ class _RadarHeaderBanner extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
 
             Expanded(
               child: Column(
@@ -697,28 +701,37 @@ class _RadarHeaderBanner extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        'Discovery Active',
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.success,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      const Text(
+                        'Discovery active',
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: ClayColors.textPrimary,
-                          letterSpacing: -0.2,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.1,
                         ),
                       ),
                       const Spacer(),
-                      ClayBadge(
-                        label: '1 km limit',
-                        isHighlighted: true,
+                      const ClayBadge(
+                        label: '1 km',
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
+                  const SizedBox(height: 3),
+                  const Text(
                     'Looking for people within 1 km walking distance',
                     style: TextStyle(
                       fontSize: 12,
-                      color: ClayColors.textSecondary,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textSecondary,
                       height: 1.3,
                     ),
                   ),
@@ -788,8 +801,8 @@ class _PendingRequestsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClayCard(
-      padding: const EdgeInsets.all(16.0),
-      borderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.all(14.0),
+      borderRadius: 12.0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -797,20 +810,20 @@ class _PendingRequestsSection extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: ClayColors.accentLight,
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.mark_chat_unread_rounded, color: ClayColors.accent, size: 16),
+                child: const Icon(Icons.mark_chat_unread_rounded, color: AppColors.icon, size: 16),
               ),
               const SizedBox(width: 10),
               Text(
-                'Chat Requests (${requests.length})',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: ClayColors.textPrimary,
-                  letterSpacing: -0.3,
+                'Chat requests (${requests.length})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
@@ -828,11 +841,11 @@ class _PendingRequestsSection extends StatelessWidget {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: ClayColors.cardSurface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ClayColors.borderSubtle),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border, width: 0.8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -840,17 +853,17 @@ class _PendingRequestsSection extends StatelessWidget {
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 20,
-                        backgroundColor: ClayColors.accentLight,
+                        radius: 18,
+                        backgroundColor: AppColors.surfaceVariant,
                         backgroundImage: req.senderAvatarUrl != null && req.senderAvatarUrl!.isNotEmpty
                             ? NetworkImage(req.senderAvatarUrl!) as ImageProvider
                             : null,
                         child: (req.senderAvatarUrl == null || req.senderAvatarUrl!.isEmpty)
                             ? Text(
                                 senderName.isNotEmpty ? senderName[0].toUpperCase() : 'U',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: ClayColors.accent,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textSecondary,
                                 ),
                               )
                             : null,
@@ -862,10 +875,10 @@ class _PendingRequestsSection extends StatelessWidget {
                           children: [
                             Text(
                               senderName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: ClayColors.textPrimary,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                                color: AppColors.textPrimary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -873,9 +886,10 @@ class _PendingRequestsSection extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               bio,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
-                                color: ClayColors.textSecondary,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -885,9 +899,10 @@ class _PendingRequestsSection extends StatelessWidget {
                       ),
                       Text(
                         timeStr,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          color: ClayColors.textSecondary,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -898,9 +913,9 @@ class _PendingRequestsSection extends StatelessWidget {
                     children: [
                       if (isProcessing)
                         const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: ClayColors.accent),
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                         )
                       else ...[
                         ClaySecondaryButton(
@@ -933,6 +948,7 @@ class _NearbyUserCard extends StatelessWidget {
   final ChatRequest? request;
   final String? currentUserId;
   final bool isProcessing;
+  final bool isNewHere;
   final VoidCallback onTapChat;
   final VoidCallback onSendRequest;
   final VoidCallback? onAccept;
@@ -945,6 +961,7 @@ class _NearbyUserCard extends StatelessWidget {
     this.request,
     this.currentUserId,
     this.isProcessing = false,
+    this.isNewHere = false,
     required this.onTapChat,
     required this.onSendRequest,
     this.onAccept,
@@ -955,31 +972,32 @@ class _NearbyUserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final nameToDisplay = (user.displayName != null && user.displayName!.isNotEmpty)
         ? user.displayName!
-        : (user.username.isNotEmpty ? user.username : 'Nearby User');
-    final bio = user.bio ?? 'Nearby Connect User';
+        : (user.username.isNotEmpty ? user.username : 'Nearby user');
+    final bio = user.bio ?? 'Nearby connect user';
     final interests = user.interests ?? const ['Chat', 'Local', 'Nearby'];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: ClayCard(
         padding: const EdgeInsets.all(16.0),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Soft Clay Avatar with Online Indicator
+                // Circular neutral avatar with online dot
                 Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 54,
-                      height: 54,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: ClayColors.cardSurface,
+                        color: AppColors.surfaceVariant,
                         shape: BoxShape.circle,
-                        boxShadow: ClayShadows.card,
-                        border: Border.all(color: ClayColors.borderSubtle, width: 1.5),
+                        border: Border.all(color: AppColors.border, width: 0.8),
                       ),
                       child: ClipOval(
                         child: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
@@ -992,21 +1010,21 @@ class _NearbyUserCard extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      right: 1,
-                      bottom: 1,
+                      right: 0,
+                      bottom: 0,
                       child: Container(
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
-                          color: user.isOnline ? const Color(0xFF10B981) : const Color(0xFF9CA3AF),
+                          color: user.isOnline ? AppColors.success : AppColors.textMuted,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: AppColors.surface, width: 2),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
 
                 Expanded(
                   child: Column(
@@ -1017,116 +1035,74 @@ class _NearbyUserCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               nameToDisplay,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                color: ClayColors.textPrimary,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 15,
+                                color: AppColors.textPrimary,
                                 letterSpacing: -0.2,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // Simple Human-Friendly Distance Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: !user.withinChatRadius
-                                  ? const Color(0xFFFEE2E2)
-                                  : user.isLocationStale
-                                      ? const Color(0xFFFEF3C7)
-                                      : ClayColors.accentLight,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  !user.withinChatRadius
-                                      ? Icons.location_off_rounded
-                                      : user.isLocationStale
-                                          ? Icons.schedule_rounded
-                                          : Icons.near_me_rounded,
-                                  size: 11,
-                                  color: !user.withinChatRadius
-                                      ? const Color(0xFFDC2626)
-                                      : user.isLocationStale
-                                          ? const Color(0xFFD97706)
-                                          : ClayColors.accent,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  !user.withinChatRadius
-                                      ? 'Outside 1 km'
-                                      : user.isLocationStale
-                                          ? 'Updating...'
-                                          : user.formattedDistance,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: !user.withinChatRadius
-                                        ? const Color(0xFFDC2626)
-                                        : user.isLocationStale
-                                            ? const Color(0xFFD97706)
-                                            : ClayColors.accent,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          const SizedBox(width: 8),
+                          if (isNewHere) ...[
+                            const ClayBadge(label: 'New here', isHighlighted: true),
+                            const SizedBox(width: 6),
+                          ],
+                          ClayBadge(
+                            label: !user.withinChatRadius
+                                ? 'Outside 1 km'
+                                : user.isLocationStale
+                                    ? 'Updating...'
+                                    : user.formattedDistance,
                           ),
                         ],
                       ),
                       const SizedBox(height: 2),
                       Text(
                         user.isOnline ? 'Active nearby' : 'Seen recently',
-                        style: TextStyle(fontSize: 12, color: ClayColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // Short Bio
+            // Short bio
             Text(
               bio,
-              style: TextStyle(fontSize: 13, color: ClayColors.textPrimary, height: 1.35),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSecondary,
+                height: 1.35,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 10),
 
-            // Subtle Interest Pills
-            if (interests.isNotEmpty)
+            // Maximum 2 real tags
+            if (interests.isNotEmpty) ...[
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
                 children: interests
-                    .take(4)
-                    .map(
-                      (interest) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: ClayColors.cardSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: ClayColors.borderSubtle),
-                        ),
-                        child: Text(
-                          '#$interest',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: ClayColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    )
+                    .take(2)
+                    .map((interest) => ClayBadge(label: '#$interest'))
                     .toList(),
               ),
+            ],
             const SizedBox(height: 14),
 
-            // Action Buttons Row
+            // Action row
             Row(
               children: [
                 if (unreadCount > 0) ...[
@@ -1136,9 +1112,9 @@ class _NearbyUserCard extends StatelessWidget {
                 const Spacer(),
                 if (isProcessing)
                   const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: ClayColors.accent),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                   )
                 else
                   _buildActionButtons(context),
@@ -1154,44 +1130,43 @@ class _NearbyUserCard extends StatelessWidget {
     return Center(
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : 'U',
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: ClayColors.accent,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary,
         ),
       ),
     );
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    // 1. Existing accepted relationships remain accessible regardless of current location
     if (request != null && request!.status == ChatRequestStatus.accepted) {
       return ClayButton(
-        label: 'Open Chat',
-        icon: Icons.chat_bubble_rounded,
+        label: 'Message',
+        icon: Icons.chat_bubble_outline_rounded,
         onPressed: onTapChat,
       );
     }
 
-    // 2. Strict 1 KM Proximity Rule: Block initiating or accepting requests when outside 1.0 km
     if (!user.withinChatRadius) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEE2E2),
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border, width: 0.8),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.location_off_rounded, size: 14, color: Colors.red.shade400),
-            const SizedBox(width: 6),
+            Icon(Icons.location_off_outlined, size: 13, color: AppColors.icon),
+            SizedBox(width: 5),
             Text(
-              'Outside 1 km radius',
+              'Outside 1 km',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.red.shade600,
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -1199,25 +1174,25 @@ class _NearbyUserCard extends StatelessWidget {
       );
     }
 
-    // 3. Reject stale location (>60s)
     if (user.isLocationStale) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF3C7),
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border, width: 0.8),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.schedule_rounded, size: 14, color: Colors.amber.shade700),
-            const SizedBox(width: 6),
+            Icon(Icons.schedule_rounded, size: 13, color: AppColors.icon),
+            SizedBox(width: 5),
             Text(
-              'Location updating...',
+              'Updating location...',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.amber.shade800,
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -1227,8 +1202,8 @@ class _NearbyUserCard extends StatelessWidget {
 
     if (request == null || request!.status == ChatRequestStatus.none || request!.status == ChatRequestStatus.cancelled) {
       return ClayButton(
-        label: 'Send Request',
-        icon: Icons.person_add_rounded,
+        label: 'Message',
+        icon: Icons.chat_bubble_outline_rounded,
         onPressed: onSendRequest,
       );
     }
@@ -1237,23 +1212,23 @@ class _NearbyUserCard extends StatelessWidget {
       final isSender = request!.senderId == currentUserId;
       if (isSender) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: ClayColors.cardSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ClayColors.borderSubtle),
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border, width: 0.8),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.hourglass_top_rounded, size: 14, color: ClayColors.textSecondary),
-              const SizedBox(width: 6),
+              Icon(Icons.hourglass_top_rounded, size: 13, color: AppColors.icon),
+              SizedBox(width: 5),
               Text(
-                'Request Pending',
+                'Request pending',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: ClayColors.textSecondary,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1279,33 +1254,26 @@ class _NearbyUserCard extends StatelessWidget {
       }
     }
 
-    if (request!.status == ChatRequestStatus.accepted) {
-      return ClayButton(
-        label: 'Open Chat',
-        icon: Icons.chat_bubble_rounded,
-        onPressed: onTapChat,
-      );
-    }
-
     if (request!.status == ChatRequestStatus.denied) {
       final isSender = request!.senderId == currentUserId;
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEE2E2),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border, width: 0.8),
             ),
             child: Text(
               isSender ? 'Declined' : 'Denied',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(width: 8),
           ClaySecondaryButton(
-            label: 'Request Again',
+            label: 'Request again',
             icon: Icons.refresh_rounded,
             onPressed: onSendRequest,
           ),
@@ -1314,8 +1282,8 @@ class _NearbyUserCard extends StatelessWidget {
     }
 
     return ClayButton(
-      label: 'Send Request',
-      icon: Icons.person_add_rounded,
+      label: 'Message',
+      icon: Icons.chat_bubble_outline_rounded,
       onPressed: onSendRequest,
     );
   }
@@ -1333,47 +1301,51 @@ class _LoadingRadarSkeleton extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            width: 100,
-            height: 100,
+            width: 90,
+            height: 90,
             child: AnimatedBuilder(
               animation: animationController,
               builder: (context, child) {
                 return CustomPaint(
                   painter: _RadarRipplePainter(
                     progress: animationController.value,
-                    color: ClayColors.accent,
+                    color: AppColors.primary,
                   ),
                   child: Center(
                     child: Container(
-                      width: 56,
-                      height: 56,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         shape: BoxShape.circle,
-                        boxShadow: ClayShadows.card,
+                        border: Border.all(color: AppColors.border, width: 0.8),
                       ),
                       padding: const EdgeInsets.all(10),
-                      child: const EasyChatLogoMark(size: 36),
+                      child: const EasyChatLogoMark(size: 32),
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Discovering nearby people...',
+          const SizedBox(height: 20),
+          const Text(
+            'Discovering nearby people',
             style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: ClayColors.textPrimary,
-              letterSpacing: -0.3,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.2,
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          const Text(
             'Searching within 1 km radius',
-            style: TextStyle(fontSize: 13, color: ClayColors.textSecondary),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -1394,26 +1366,26 @@ class _LocationDisabledCard extends StatelessWidget {
         padding: const EdgeInsets.all(24.0),
         child: ClayCard(
           padding: const EdgeInsets.all(24.0),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: ClayColors.accentLight,
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.location_off_rounded, size: 36, color: ClayColors.accent),
+                child: const Icon(Icons.location_off_outlined, size: 32, color: AppColors.icon),
               ),
-              const SizedBox(height: 18),
-              Text(
-                'Location Access Needed',
+              const SizedBox(height: 16),
+              const Text(
+                'Location access needed',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: ClayColors.textPrimary,
-                  letterSpacing: -0.3,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1422,12 +1394,17 @@ class _LocationDisabledCard extends StatelessWidget {
                     ? errorMessage
                     : 'Easy Chat needs your location to discover people within 1 km.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: ClayColors.textSecondary, fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 20),
               ClayButton(
-                label: 'Enable Location & Retry',
-                icon: Icons.near_me_rounded,
+                label: 'Enable location and retry',
+                icon: Icons.near_me_outlined,
                 onPressed: onRetry,
               ),
             ],
@@ -1452,34 +1429,39 @@ class _EmptyNearbyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
-                boxShadow: ClayShadows.card,
+                border: Border.all(color: AppColors.border, width: 0.8),
               ),
-              child: const EasyChatLogoMark(size: 48),
+              child: const EasyChatLogoMark(size: 42),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'No One Nearby Right Now',
+            const SizedBox(height: 20),
+            const Text(
+              'No one nearby right now',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: ClayColors.textPrimary,
-                letterSpacing: -0.3,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'When people within 1 km open Easy Chat, they will appear here automatically.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: ClayColors.textSecondary, height: 1.4),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             ClayButton(
-              label: 'Scan Again',
-              icon: Icons.radar_rounded,
+              label: 'Scan again',
+              icon: Icons.radar_outlined,
               onPressed: onScan,
             ),
           ],
