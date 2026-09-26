@@ -218,7 +218,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   color: AppColors.primary,
                   onTap: () async {
                     Navigator.pop(ctx);
-                    await _pickAndSendImage(controller);
+                    final source = await _showImageSourceDialog();
+                    if (source != null) {
+                      await _pickAndSendImage(controller, source: source);
+                    }
                   },
                 ),
                 _AttachmentOption(
@@ -251,11 +254,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // Image
   // ---------------------------------------------------------------------------
 
-  Future<void> _pickAndSendImage(ChatController controller) async {
-    // Let user choose source: gallery or camera
-    final source = await _showImageSourceDialog();
-    if (source == null) return;
-
+  Future<void> _pickAndSendImage(ChatController controller, {ImageSource source = ImageSource.gallery}) async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(
       source: source,
@@ -263,9 +262,94 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       maxWidth: 1920,
       maxHeight: 1920,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
-    await controller.sendImageMessage(File(picked.path));
+    final imageFile = File(picked.path);
+    final confirmed = await _showImagePreviewDialog(imageFile);
+    if (confirmed == true && mounted) {
+      await controller.sendImageMessage(imageFile);
+    }
+  }
+
+  Future<bool?> _showImagePreviewDialog(File imageFile) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border, width: 0.8),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.photo_library_outlined, color: AppColors.primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Preview image',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 260),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  border: Border.all(color: AppColors.border, width: 0.8),
+                ),
+                child: Image.file(
+                  imageFile,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 12, color: AppColors.textSecondary),
+                SizedBox(width: 4),
+                Text(
+                  'End-to-end encrypted before upload',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ClayButton(
+            label: 'Send',
+            icon: Icons.send_rounded,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<ImageSource?> _showImageSourceDialog() async {
@@ -466,6 +550,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         : (peerUser?.username.isNotEmpty == true
             ? peerUser!.username
             : 'Nearby Peer');
+    final distanceText = (peerUser != null && peerUser.distanceMeters > 0)
+        ? ' • ${peerUser.formattedDistance}'
+        : '';
+    final statusText = chatState.isRecipientOnline
+        ? 'Online now$distanceText'
+        : 'Offline';
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -475,10 +565,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.icon),
-            onPressed: () => Navigator.of(context).pop(),
+          leadingWidth: 54,
+          leading: Center(
+            child: ClayCircleButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onPressed: () => Navigator.of(context).pop(),
+              size: 38,
+              iconSize: 15,
+            ),
           ),
+          titleSpacing: 4,
           title: GestureDetector(
             onTap: () => _showPeerProfileModal(context, chatState.isRecipientOnline, peerDisplayName),
             child: Row(
@@ -487,8 +583,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: AppColors.surfaceVariant,
                         shape: BoxShape.circle,
@@ -499,76 +595,81 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           peerDisplayName.isNotEmpty ? peerDisplayName[0].toUpperCase() : 'P',
                           style: const TextStyle(
                             fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                            fontSize: 15,
                             color: AppColors.textSecondary,
                           ),
                         ),
                       ),
                     ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: chatState.isRecipientOnline ? AppColors.success : AppColors.textMuted,
-                          border: Border.all(color: AppColors.background, width: 1.5),
+                    if (chatState.isRecipientOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.success,
+                            border: Border.all(color: AppColors.background, width: 1.5),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      peerDisplayName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.2,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        peerDisplayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.2,
+                        ),
                       ),
-                    ),
-                    Row(
-                      children: [
-                        if (chatState.isRecipientOnline) ...[
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.success,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Active nearby',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ] else
-                          const Text(
-                            'Offline',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 1),
+                      Text(
+                        statusText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: chatState.isRecipientOnline ? AppColors.textSecondary : AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+          actions: [
+            ClayCircleButton(
+              icon: Icons.phone_outlined,
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Voice calls coming soon')),
+                );
+              },
+              size: 38,
+              iconSize: 18,
+            ),
+            const SizedBox(width: 8),
+            ClayCircleButton(
+              icon: Icons.more_horiz_rounded,
+              onPressed: () => _showPeerProfileModal(context, chatState.isRecipientOnline, peerDisplayName),
+              size: 38,
+              iconSize: 18,
+            ),
+            const SizedBox(width: 12),
+          ],
         ),
         body: Column(
           children: [
@@ -877,39 +978,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
 
-            // Premium [ + ] [ Type a message... ] [ blue send ] toolbar
+            // Tactile Composer: [ Attachment ] [ Write a message... ] [ Voice ] [ Blue Send ]
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
               child: Row(
                 children: [
-                  // [+] Button: neutral gray outline / icon
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.border, width: 0.8),
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: Icon(
-                        Icons.add_rounded,
-                        size: 20,
-                        color: isAccepted ? AppColors.icon : AppColors.disabled,
-                      ),
-                      onPressed: isAccepted ? () => _showAttachmentMenu(context, controller) : null,
-                    ),
+                  // 1. Attachment Button: opens device native photo/gallery picker on tap, long press for menu
+                  ClayCircleButton(
+                    icon: Icons.attach_file_rounded,
+                    tooltip: 'Attach photo or location',
+                    onPressed: isAccepted ? () => _pickAndSendImage(controller) : null,
+                    onLongPress: isAccepted ? () => _showAttachmentMenu(context, controller) : null,
+                    size: 40,
+                    iconSize: 20,
+                    iconColor: isAccepted ? AppColors.icon : AppColors.disabled,
                   ),
                   const SizedBox(width: 8),
 
-                  // Input field: white/light neutral background, neutral border
+                  // 2. Input field: soft rounded white surface with "Write a message..." placeholder
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(22),
                         border: Border.all(color: AppColors.border, width: 0.8),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x061F2328),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: TextField(
                         controller: _textController,
@@ -930,23 +1029,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               ? (chatState.requestStatus == ChatRequestStatus.denied
                                   ? 'Chat request declined'
                                   : 'Waiting for acceptance...')
-                              : 'Type a message...',
+                              : 'Write a message...',
                           hintStyle: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             color: AppColors.textMuted,
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
 
-                  // Send: circular #3B6FE0 button, white arrow
-                  GestureDetector(
-                    onTap: isAccepted
+                  // 3. Voice Button: direct access to voice note recording
+                  ClayCircleButton(
+                    icon: Icons.mic_none_rounded,
+                    tooltip: 'Record voice message',
+                    onPressed: isAccepted ? () => _openVoiceRecordingSheet(controller) : null,
+                    size: 40,
+                    iconSize: 20,
+                    iconColor: isAccepted ? AppColors.icon : AppColors.disabled,
+                  ),
+                  const SizedBox(width: 8),
+
+                  // 4. Send: circular #3B6FE0 button, white send icon
+                  ClayCircleButton(
+                    icon: Icons.send_rounded,
+                    tooltip: 'Send message',
+                    onPressed: isAccepted
                         ? () {
                             final text = _textController.text;
                             if (text.trim().isNotEmpty) {
@@ -959,17 +1071,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             }
                           }
                         : null,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isAccepted ? AppColors.primary : AppColors.disabled,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
-                      ),
-                    ),
+                    backgroundColor: isAccepted ? AppColors.primary : AppColors.disabled,
+                    iconColor: Colors.white,
+                    size: 40,
+                    iconSize: 18,
+                    border: Border.all(color: Colors.transparent),
+                    shadows: isAccepted
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x333B6FE0),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                 ],
               ),
@@ -1294,12 +1409,21 @@ class _MessageBubble extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelf ? AppColors.primary : AppColors.surface,
               borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isSelf ? 16 : 4),
-                bottomRight: Radius.circular(isSelf ? 4 : 16),
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: Radius.circular(isSelf ? 18 : 4),
+                bottomRight: Radius.circular(isSelf ? 4 : 18),
               ),
               border: isSelf ? null : Border.all(color: AppColors.border, width: 0.8),
+              boxShadow: isSelf
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: Color(0x061F2328),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
             ),
             child: _buildContent(context),
           ),
@@ -1502,11 +1626,15 @@ class _MessageBubble extends StatelessWidget {
 
   Widget _buildTimestampRow() {
     if (!showTimestamp) return const SizedBox.shrink();
+    final hour12 = createdAt.hour == 0 ? 12 : (createdAt.hour > 12 ? createdAt.hour - 12 : createdAt.hour);
+    final period = createdAt.hour >= 12 ? 'PM' : 'AM';
+    final timeStr = '$hour12:${createdAt.minute.toString().padLeft(2, '0')} $period';
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
+          timeStr,
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w400,
@@ -1522,6 +1650,43 @@ class _MessageBubble extends StatelessWidget {
           ),
         ]
       ],
+    );
+  }
+}
+
+class _AudioWaveformVisualizer extends StatelessWidget {
+  final Color color;
+  final bool isPlaying;
+
+  const _AudioWaveformVisualizer({
+    required this.color,
+    this.isPlaying = false,
+  });
+
+  static const List<double> _waveformHeights = [
+    8, 14, 22, 12, 18, 26, 16, 24, 10, 18, 22, 14, 20, 10, 16, 24, 18, 12, 8
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 28,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(_waveformHeights.length, (index) {
+          final barH = _waveformHeights[index];
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            width: 2.5,
+            height: barH,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1.5),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
@@ -1600,8 +1765,12 @@ class _VoiceBubbleContentState extends ConsumerState<_VoiceBubbleContent> {
     final duration =
         '${(secs ~/ 60).toString().padLeft(2, '0')}:${(secs % 60).toString().padLeft(2, '0')}';
 
+    final playBtnBg = widget.isSelf ? Colors.white : AppColors.primary;
+    final playBtnFg = widget.isSelf ? AppColors.primary : Colors.white;
+    final waveColor = widget.isSelf ? Colors.white.withOpacity(0.85) : AppColors.primary;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         crossAxisAlignment: widget.isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
@@ -1614,8 +1783,15 @@ class _VoiceBubbleContentState extends ConsumerState<_VoiceBubbleContent> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: widget.isSelf ? Colors.white.withOpacity(0.2) : AppColors.surfaceVariant,
+                    color: playBtnBg,
                     shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x141F2328),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: _isLoading
@@ -1624,40 +1800,34 @@ class _VoiceBubbleContentState extends ConsumerState<_VoiceBubbleContent> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                widget.isSelf ? Colors.white : AppColors.primary,
-                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(playBtnFg),
                             ),
                           )
                         : Icon(
                             _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            color: widget.isSelf ? Colors.white : AppColors.primary,
+                            color: playBtnFg,
                             size: 22,
                           ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.graphic_eq_rounded,
-                    color: widget.isSelf ? Colors.white70 : AppColors.textSecondary,
-                    size: 20,
-                  ),
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: widget.isSelf ? Colors.white70 : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+              _AudioWaveformVisualizer(
+                color: waveColor,
+                isPlaying: _isPlaying,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                duration,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: widget.isSelf ? Colors.white.withOpacity(0.85) : AppColors.textSecondary,
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 4),
           widget.timestampRow,
         ],
       ),

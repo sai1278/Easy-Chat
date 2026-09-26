@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/clay_design_system.dart';
 import '../data/profile_repository.dart';
 
@@ -53,7 +54,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!'),
-            backgroundColor: Color(0xFF10B981),
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -63,7 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.danger,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -87,52 +88,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      backgroundColor: ClayColors.background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: ClayColors.background,
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: ClayColors.cardSurface,
-              shape: BoxShape.circle,
-              boxShadow: ClayShadows.button,
-            ),
-            child: Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: ClayColors.textPrimary),
+        leadingWidth: 54,
+        leading: Center(
+          child: ClayCircleButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            onPressed: () => Navigator.of(context).pop(),
+            size: 38,
+            iconSize: 15,
           ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          'Profile',
+        title: const Text(
+          'Edit Profile',
           style: TextStyle(
-            color: ClayColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.5,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            letterSpacing: -0.2,
           ),
         ),
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: ClayColors.cardSurface,
-                shape: BoxShape.circle,
-                boxShadow: ClayShadows.button,
-              ),
-              child: Icon(Icons.refresh_rounded, size: 18, color: ClayColors.textSecondary),
-            ),
-            tooltip: 'Refresh Profile',
+          ClayCircleButton(
+            icon: Icons.refresh_rounded,
             onPressed: () => ref.read(userProfileProvider.notifier).loadProfile(),
+            size: 38,
+            iconSize: 18,
+            iconColor: AppColors.icon,
+            tooltip: 'Refresh Profile',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
         ],
       ),
       body: profileAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: ClayColors.accent),
+        loading: () => const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
         ),
         error: (err, _) => Center(
           child: Padding(
@@ -142,14 +139,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline_rounded, size: 48, color: const Color(0xFFDC2626)),
+                  const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.danger),
                   const SizedBox(height: 16),
-                  Text(
+                  const Text(
                     'Failed to load profile',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: ClayColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 8),
-                  Text('$err', style: TextStyle(color: ClayColors.textSecondary, fontSize: 13)),
+                  Text('$err', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   const SizedBox(height: 16),
                   ClayButton(
                     label: 'Retry',
@@ -170,7 +167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             child: Form(
               key: _formKey,
               child: Column(
@@ -180,13 +177,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Stack(
                       children: [
                         Container(
-                          width: 104,
-                          height: 104,
+                          width: 96,
+                          height: 96,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             shape: BoxShape.circle,
-                            boxShadow: ClayShadows.card,
-                            border: Border.all(color: ClayColors.borderSubtle, width: 2),
+                            border: Border.all(color: AppColors.border, width: 1.5),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0A1F2328),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: ClipOval(
                             child: _avatarUrlController.text.isNotEmpty
@@ -199,50 +202,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                         Positioned(
-                          right: 2,
-                          bottom: 2,
+                          right: 0,
+                          bottom: 0,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            width: 30,
+                            height: 30,
                             decoration: BoxDecoration(
-                              color: ClayColors.accent,
+                              color: AppColors.primary,
                               shape: BoxShape.circle,
-                              boxShadow: ClayShadows.button,
+                              border: Border.all(color: AppColors.background, width: 2),
                             ),
-                            child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                            child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Text(
                     '@${profile.username}',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ClayColors.accent),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.primary),
                   ),
                   const SizedBox(height: 20),
 
                   // Form Fields Clay Card
                   ClayCard(
-                    padding: const EdgeInsets.all(20.0),
+                    borderRadius: 18.0,
+                    padding: const EdgeInsets.all(18.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Profile Details',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: ClayColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                             letterSpacing: -0.2,
                           ),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _displayNameController,
-                          decoration: const InputDecoration(
+                          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                          decoration: InputDecoration(
                             labelText: 'Display Name',
-                            prefixIcon: Icon(Icons.person_outline_rounded),
+                            labelStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.icon, size: 20),
                             hintText: 'Enter your name',
+                            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                            ),
                           ),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
@@ -251,24 +273,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         TextFormField(
                           controller: _avatarUrlController,
-                          decoration: const InputDecoration(
+                          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                          decoration: InputDecoration(
                             labelText: 'Avatar Image URL (Optional)',
-                            prefixIcon: Icon(Icons.link_rounded),
+                            labelStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            prefixIcon: const Icon(Icons.link_rounded, color: AppColors.icon, size: 20),
                             hintText: 'https://example.com/avatar.jpg',
+                            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                            ),
                           ),
                           onChanged: (_) => setState(() {}),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         TextFormField(
                           controller: _bioController,
                           maxLines: 3,
-                          decoration: const InputDecoration(
+                          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                          decoration: InputDecoration(
                             labelText: 'About You',
-                            prefixIcon: Icon(Icons.info_outline_rounded),
+                            labelStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            prefixIcon: const Icon(Icons.info_outline_rounded, color: AppColors.icon, size: 20),
                             hintText: 'Share a short bio with people nearby...',
+                            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.border, width: 0.8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                            ),
                           ),
                         ),
                       ],
@@ -297,10 +353,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         profile.displayName.isNotEmpty
             ? profile.displayName[0].toUpperCase()
             : (profile.username.isNotEmpty ? profile.username[0].toUpperCase() : 'U'),
-        style: TextStyle(
-          fontSize: 38,
-          fontWeight: FontWeight.w800,
-          color: ClayColors.accent,
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
         ),
       ),
     );

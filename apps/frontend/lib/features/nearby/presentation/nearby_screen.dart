@@ -36,6 +36,8 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
   bool _isInitializing = true;
   bool _locationUnavailable = false;
   String _locationErrorMessage = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   List<ChatRequest> _incomingRequests = [];
   final Map<String, ChatRequest> _peerRequestStatuses = {};
@@ -484,6 +486,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
 
   @override
   void dispose() {
+    _searchController.dispose();
     _positionSub?.cancel();
     _profileUpdateSub?.cancel();
     _chatRequestSub?.cancel();
@@ -495,6 +498,15 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final users = ref.watch(proximityUsersProvider);
+    final filteredUsers = _searchQuery.isEmpty
+        ? users
+        : users.where((u) {
+            final q = _searchQuery.toLowerCase();
+            final nameMatch = (u.displayName ?? u.username).toLowerCase().contains(q);
+            final bioMatch = (u.bio ?? '').toLowerCase().contains(q);
+            final interestMatch = u.interests?.any((i) => i.toLowerCase().contains(q)) ?? false;
+            return nameMatch || bioMatch || interestMatch;
+          }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -504,13 +516,13 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
         centerTitle: false,
         title: const Row(
           children: [
-            EasyChatLogoMark(size: 28),
+            EasyChatLogoMark(size: 26),
             SizedBox(width: 10),
             Text(
               'Easy chat',
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 fontSize: 18,
                 letterSpacing: -0.2,
               ),
@@ -518,77 +530,125 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
           ],
         ),
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border, width: 0.8),
-              ),
-              child: const Icon(Icons.sync_rounded, size: 16, color: AppColors.icon),
-            ),
+          ClayCircleButton(
+            icon: Icons.sync_rounded,
+            size: 36,
+            iconSize: 18,
+            iconColor: AppColors.icon,
             tooltip: 'Refresh',
             onPressed: () => _initializeLocationAndDiscovery(),
           ),
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border, width: 0.8),
-              ),
-              child: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.icon),
-            ),
+          const SizedBox(width: 8),
+          ClayCircleButton(
+            icon: Icons.person_outline_rounded,
+            size: 36,
+            iconSize: 18,
+            iconColor: AppColors.icon,
             tooltip: 'My profile',
             onPressed: () => context.push('/profile'),
           ),
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border, width: 0.8),
-              ),
-              child: const Icon(Icons.settings_outlined, size: 16, color: AppColors.icon),
-            ),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
         ],
       ),
       backgroundColor: AppColors.background,
+      bottomNavigationBar: ClayBottomNavigationBar(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 2) {
+            context.push('/settings');
+          }
+        },
+      ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Radar Discovery Banner
-          _RadarHeaderBanner(
-            animationController: _radarAnimationController,
-            currentPosition: _currentPosition,
-          ),
-
+          // Header: "Find people nearby" followed by rounded search field + filter
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'People nearby',
+                  'Find people nearby',
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
-                    letterSpacing: -0.2,
+                    letterSpacing: -0.4,
                   ),
                 ),
-                const Spacer(),
-                ClayBadge(
-                  label: '${users.length} nearby',
+                const SizedBox(height: 14),
+                // Curved pill search field with integrated tactile filter button
+                Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: AppColors.border, width: 0.8),
+                    boxShadow: ClayShadows.card,
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      const Icon(Icons.search_rounded, size: 20, color: AppColors.icon),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (val) {
+                            setState(() {
+                              _searchQuery = val.trim();
+                            });
+                          },
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textPrimary,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search interests (e.g. coffee, hiking)',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.textMuted,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.icon),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6.0),
+                        child: ClayCircleButton(
+                          icon: Icons.tune_rounded,
+                          size: 40,
+                          iconSize: 18,
+                          iconColor: AppColors.icon,
+                          tooltip: 'Filter interests',
+                          onPressed: () => _initializeLocationAndDiscovery(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+
+          const SizedBox(height: 4),
 
           Expanded(
             child: _isInitializing
@@ -610,31 +670,48 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
                                   onAccept: _acceptRequest,
                                   onDeny: _denyRequest,
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 12),
                               ],
-                              ...users.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final user = entry.value;
-                                final unreadCounts = ref.watch(unreadCountsProvider);
-                                final unreadCount = unreadCounts[user.userId] ?? 0;
-                                final req = _peerRequestStatuses[user.userId];
-                                final isProcessing = _processingRequestIds.contains(user.userId) ||
-                                    (req != null && _processingRequestIds.contains(req.id));
+                              if (filteredUsers.isEmpty && _searchQuery.isNotEmpty)
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 40),
+                                    child: Column(
+                                      children: [
+                                        const Icon(Icons.search_off_rounded, size: 36, color: AppColors.icon),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'No people matching "$_searchQuery"',
+                                          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...filteredUsers.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final user = entry.value;
+                                  final unreadCounts = ref.watch(unreadCountsProvider);
+                                  final unreadCount = unreadCounts[user.userId] ?? 0;
+                                  final req = _peerRequestStatuses[user.userId];
+                                  final isProcessing = _processingRequestIds.contains(user.userId) ||
+                                      (req != null && _processingRequestIds.contains(req.id));
 
-                                return _NearbyUserCard(
-                                  key: ValueKey(user.userId),
-                                  user: user,
-                                  unreadCount: unreadCount,
-                                  request: req,
-                                  currentUserId: _myUserId,
-                                  isProcessing: isProcessing,
-                                  isNewHere: index == 0,
-                                  onTapChat: () => _startChatWithUser(user),
-                                  onSendRequest: () => _sendChatRequest(user),
-                                  onAccept: req != null ? () => _acceptRequest(req) : null,
-                                  onDeny: req != null ? () => _denyRequest(req) : null,
-                                );
-                              }),
+                                  return _NearbyUserCard(
+                                    key: ValueKey(user.userId),
+                                    user: user,
+                                    unreadCount: unreadCount,
+                                    request: req,
+                                    currentUserId: _myUserId,
+                                    isProcessing: isProcessing,
+                                    isNewHere: index == 0,
+                                    onTapChat: () => _startChatWithUser(user),
+                                    onSendRequest: () => _sendChatRequest(user),
+                                    onAccept: req != null ? () => _acceptRequest(req) : null,
+                                    onDeny: req != null ? () => _denyRequest(req) : null,
+                                  );
+                                }),
                             ],
                           ),
           ),
@@ -644,106 +721,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> with SingleTickerPr
   }
 }
 
-class _RadarHeaderBanner extends StatelessWidget {
-  final AnimationController animationController;
-  final Position? currentPosition;
-
-  const _RadarHeaderBanner({
-    required this.animationController,
-    this.currentPosition,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ClayCard(
-        borderRadius: 12.0,
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            // Radar Animation Ripple Circle with Official Logo center
-            SizedBox(
-              width: 52,
-              height: 52,
-              child: AnimatedBuilder(
-                animation: animationController,
-                builder: (context, child) {
-                  return RepaintBoundary(
-                    child: CustomPaint(
-                      painter: _RadarRipplePainter(
-                        progress: animationController.value,
-                        color: AppColors.primary,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.border, width: 0.8),
-                          ),
-                          padding: const EdgeInsets.all(5),
-                          child: const EasyChatLogoMark(size: 24),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 14),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.success,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      const Text(
-                        'Discovery active',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                      const Spacer(),
-                      const ClayBadge(
-                        label: '1 km',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  const Text(
-                    'Looking for people within 1 km walking distance',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _RadarRipplePainter extends CustomPainter {
   final double progress;
@@ -969,6 +946,7 @@ class _NearbyUserCard extends StatelessWidget {
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
     final nameToDisplay = (user.displayName != null && user.displayName!.isNotEmpty)
         ? user.displayName!
@@ -980,20 +958,20 @@ class _NearbyUserCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: ClayCard(
         padding: const EdgeInsets.all(16.0),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: 20.0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Circular neutral avatar with online dot
+                // Circular neutral avatar with online dot pinned to bottom-right
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 50,
+                      height: 50,
                       decoration: BoxDecoration(
                         color: AppColors.surfaceVariant,
                         shape: BoxShape.circle,
@@ -1013,31 +991,32 @@ class _NearbyUserCard extends StatelessWidget {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        width: 12,
-                        height: 12,
+                        width: 13,
+                        height: 13,
                         decoration: BoxDecoration(
-                          color: user.isOnline ? AppColors.success : AppColors.textMuted,
+                          color: user.isOnline ? AppColors.success : AppColors.disabled,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.surface, width: 2),
+                          border: Border.all(color: Colors.white, width: 2.2),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
 
+                // Name & Distance
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Expanded(
+                          Flexible(
                             child: Text(
                               nameToDisplay,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
                                 color: AppColors.textPrimary,
                                 letterSpacing: -0.2,
                               ),
@@ -1045,25 +1024,17 @@ class _NearbyUserCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 8),
                           if (isNewHere) ...[
-                            const ClayBadge(label: 'New here', isHighlighted: true),
                             const SizedBox(width: 6),
+                            const ClayBadge(label: 'New here', isHighlighted: true),
                           ],
-                          ClayBadge(
-                            label: !user.withinChatRadius
-                                ? 'Outside 1 km'
-                                : user.isLocationStale
-                                    ? 'Updating...'
-                                    : user.formattedDistance,
-                          ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
-                        user.isOnline ? 'Active nearby' : 'Seen recently',
+                        '${user.formattedDistance} away',
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
                           color: AppColors.textSecondary,
                         ),
@@ -1071,55 +1042,54 @@ class _NearbyUserCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
+                const SizedBox(width: 8),
 
-            // Short bio
-            Text(
-              bio,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: AppColors.textSecondary,
-                height: 1.35,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+                // Unread Badge if present
+                if (unreadCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ClayBadge(label: '$unreadCount', isHighlighted: true),
+                  ),
 
-            // Maximum 2 real tags
-            if (interests.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: interests
-                    .take(2)
-                    .map((interest) => ClayBadge(label: '#$interest'))
-                    .toList(),
-              ),
-            ],
-            const SizedBox(height: 14),
-
-            // Action row
-            Row(
-              children: [
-                if (unreadCount > 0) ...[
-                  ClayBadge(label: '$unreadCount unread', isHighlighted: true),
-                  const SizedBox(width: 8),
-                ],
-                const Spacer(),
+                // Message Action Button (White circular tactile button with blue chat bubble)
                 if (isProcessing)
                   const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 24,
+                    height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                   )
                 else
                   _buildActionButtons(context),
               ],
             ),
+
+            if (bio.isNotEmpty && bio != 'Nearby connect user') ...[
+              const SizedBox(height: 10),
+              Text(
+                bio,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSecondary,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+
+            // Interest Chips
+            if (interests.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: interests
+                    .take(3)
+                    .map((interest) => ClayBadge(label: interest.startsWith('#') ? interest.substring(1) : interest))
+                    .toList(),
+              ),
+            ],
           ],
         ),
       ),
@@ -1141,69 +1111,45 @@ class _NearbyUserCard extends StatelessWidget {
 
   Widget _buildActionButtons(BuildContext context) {
     if (request != null && request!.status == ChatRequestStatus.accepted) {
-      return ClayButton(
-        label: 'Message',
-        icon: Icons.chat_bubble_outline_rounded,
+      return ClayCircleButton(
+        icon: Icons.chat_bubble_rounded,
+        iconColor: AppColors.primary,
+        size: 42,
+        iconSize: 18,
+        tooltip: 'Open chat',
         onPressed: onTapChat,
       );
     }
 
     if (!user.withinChatRadius) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border, width: 0.8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.location_off_outlined, size: 13, color: AppColors.icon),
-            SizedBox(width: 5),
-            Text(
-              'Outside 1 km',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+      return const ClayCircleButton(
+        icon: Icons.location_off_outlined,
+        iconColor: AppColors.disabled,
+        size: 42,
+        iconSize: 18,
+        tooltip: 'Outside 1 km',
+        onPressed: null,
       );
     }
 
     if (user.isLocationStale) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border, width: 0.8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule_rounded, size: 13, color: AppColors.icon),
-            SizedBox(width: 5),
-            Text(
-              'Updating location...',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+      return const ClayCircleButton(
+        icon: Icons.schedule_rounded,
+        iconColor: AppColors.disabled,
+        size: 42,
+        iconSize: 18,
+        tooltip: 'Updating location...',
+        onPressed: null,
       );
     }
 
     if (request == null || request!.status == ChatRequestStatus.none || request!.status == ChatRequestStatus.cancelled) {
-      return ClayButton(
-        label: 'Message',
-        icon: Icons.chat_bubble_outline_rounded,
+      return ClayCircleButton(
+        icon: Icons.chat_bubble_rounded,
+        iconColor: AppColors.primary,
+        size: 42,
+        iconSize: 18,
+        tooltip: 'Message',
         onPressed: onSendRequest,
       );
     }
@@ -1211,42 +1157,33 @@ class _NearbyUserCard extends StatelessWidget {
     if (request!.status == ChatRequestStatus.pending) {
       final isSender = request!.senderId == currentUserId;
       if (isSender) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border, width: 0.8),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.hourglass_top_rounded, size: 13, color: AppColors.icon),
-              SizedBox(width: 5),
-              Text(
-                'Request pending',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
+        return const ClayCircleButton(
+          icon: Icons.hourglass_top_rounded,
+          iconColor: AppColors.primary,
+          size: 42,
+          iconSize: 18,
+          tooltip: 'Request pending',
+          onPressed: null,
         );
       } else {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClaySecondaryButton(
-              label: 'Deny',
+            ClayCircleButton(
               icon: Icons.close_rounded,
+              iconColor: AppColors.danger,
+              size: 36,
+              iconSize: 16,
+              tooltip: 'Deny',
               onPressed: onDeny,
             ),
             const SizedBox(width: 8),
-            ClayButton(
-              label: 'Accept',
+            ClayCircleButton(
               icon: Icons.check_rounded,
+              iconColor: AppColors.success,
+              size: 36,
+              iconSize: 16,
+              tooltip: 'Accept',
               onPressed: onAccept,
             ),
           ],
@@ -1256,34 +1193,22 @@ class _NearbyUserCard extends StatelessWidget {
 
     if (request!.status == ChatRequestStatus.denied) {
       final isSender = request!.senderId == currentUserId;
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border, width: 0.8),
-            ),
-            child: Text(
-              isSender ? 'Declined' : 'Denied',
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ClaySecondaryButton(
-            label: 'Request again',
-            icon: Icons.refresh_rounded,
-            onPressed: onSendRequest,
-          ),
-        ],
+      return ClayCircleButton(
+        icon: Icons.refresh_rounded,
+        iconColor: isSender ? AppColors.disabled : AppColors.primary,
+        size: 42,
+        iconSize: 18,
+        tooltip: isSender ? 'Declined' : 'Request again',
+        onPressed: onSendRequest,
       );
     }
 
-    return ClayButton(
-      label: 'Message',
-      icon: Icons.chat_bubble_outline_rounded,
+    return ClayCircleButton(
+      icon: Icons.chat_bubble_rounded,
+      iconColor: AppColors.primary,
+      size: 42,
+      iconSize: 18,
+      tooltip: 'Message',
       onPressed: onSendRequest,
     );
   }

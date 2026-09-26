@@ -46,10 +46,15 @@ class ClayColors {
 }
 
 class ClayShadows {
-  /// Subtle ambient card shadow (no heavy shadows or excessive elevation)
+  /// Subtle ambient card shadow (soft tactile elevation matching the reference)
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x06000000),
+      color: Color(0x0A1F2328),
+      blurRadius: 16,
+      offset: Offset(0, 4),
+    ),
+    BoxShadow(
+      color: Color(0x051F2328),
       blurRadius: 4,
       offset: Offset(0, 1),
     ),
@@ -58,8 +63,13 @@ class ClayShadows {
   /// Elevated card for prominent modals/dialogs
   static const List<BoxShadow> cardElevated = [
     BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 8,
+      color: Color(0x101F2328),
+      blurRadius: 24,
+      offset: Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Color(0x061F2328),
+      blurRadius: 6,
       offset: Offset(0, 2),
     ),
   ];
@@ -73,7 +83,7 @@ class ClayShadows {
   static const List<BoxShadow> button = [];
 }
 
-/// Clean card container with 12px radius and subtle neutral border
+/// Clean card container with 18px radius and subtle neutral border
 class ClayCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -89,7 +99,7 @@ class ClayCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.margin,
-    this.borderRadius = 12.0,
+    this.borderRadius = 18.0,
     this.color,
     this.shadows,
     this.border,
@@ -104,7 +114,7 @@ class ClayCard extends StatelessWidget {
     } else if (borderRadius is num) {
       resolvedRadius = BorderRadius.circular((borderRadius as num).toDouble());
     } else {
-      resolvedRadius = BorderRadius.circular(12.0);
+      resolvedRadius = BorderRadius.circular(18.0);
     }
 
     Widget cardContent = Container(
@@ -337,10 +347,10 @@ class ClayBadge extends StatelessWidget {
     final ic = iconColor ?? fg;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
         border: border,
       ),
       child: Row(
@@ -353,8 +363,8 @@ class ClayBadge extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
               color: fg,
               letterSpacing: -0.1,
             ),
@@ -516,6 +526,263 @@ class _EasyChatVectorPainter extends CustomPainter {
     path.close();
 
     canvas.drawPath(path, arrowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Circular tactile button matching the reference design
+/// Used for card message action, chat header buttons, composer attachments, filter, etc.
+class ClayCircleButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final double size;
+  final double iconSize;
+  final String? tooltip;
+  final Border? border;
+  final List<BoxShadow>? shadows;
+
+  const ClayCircleButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.onLongPress,
+    this.backgroundColor,
+    this.iconColor,
+    this.size = 42.0,
+    this.iconSize = 20.0,
+    this.tooltip,
+    this.border,
+    this.shadows,
+  });
+
+  @override
+  State<ClayCircleButton> createState() => _ClayCircleButtonState();
+}
+
+class _ClayCircleButtonState extends State<ClayCircleButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isEnabled = widget.onPressed != null || widget.onLongPress != null;
+    final bg = widget.backgroundColor ?? AppColors.surface;
+    final fg = widget.iconColor ?? AppColors.primary;
+    final border = widget.border ?? Border.all(color: AppColors.border, width: 0.8);
+    final shadows = widget.shadows ?? const [
+      BoxShadow(
+        color: Color(0x0A1F2328),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+    ];
+
+    Widget btn = AnimatedScale(
+      scale: _isPressed ? 0.94 : 1.0,
+      duration: const Duration(milliseconds: 70),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          color: isEnabled ? (_isPressed ? AppColors.surfaceVariant : bg) : AppColors.surfaceSubtle,
+          shape: BoxShape.circle,
+          border: border,
+          boxShadow: isEnabled ? shadows : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onHighlightChanged: (val) {
+              if (isEnabled) setState(() => _isPressed = val);
+            },
+            onTap: widget.onPressed,
+            onLongPress: widget.onLongPress,
+            child: Center(
+              child: Icon(
+                widget.icon,
+                size: widget.iconSize,
+                color: isEnabled ? fg : AppColors.disabled,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (widget.tooltip != null) {
+      return Tooltip(message: widget.tooltip!, child: btn);
+    }
+    return btn;
+  }
+}
+
+/// Clean tactile bottom navigation bar across main app destinations (Nearby, Chats, Settings)
+class ClayBottomNavigationBar extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const ClayBottomNavigationBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(color: AppColors.border, width: 0.8),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A1F2328),
+            blurRadius: 16,
+            offset: Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _ClayBottomNavItem(
+                icon: currentIndex == 0 ? Icons.location_on_rounded : Icons.location_on_outlined,
+                label: 'Nearby',
+                isActive: currentIndex == 0,
+                onTap: () => onTap(0),
+              ),
+              _ClayBottomNavItem(
+                icon: currentIndex == 1 ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
+                label: 'Chats',
+                isActive: currentIndex == 1,
+                onTap: () => onTap(1),
+              ),
+              _ClayBottomNavItem(
+                icon: currentIndex == 2 ? Icons.settings_rounded : Icons.settings_outlined,
+                label: 'Settings',
+                isActive: currentIndex == 2,
+                onTap: () => onTap(2),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClayBottomNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _ClayBottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppColors.primary : AppColors.icon;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.primaryLight : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
+                color: color,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Organic clay background painter for the Splash Screen
+/// Renders subtle warm convex clay curves in the top-right and bottom-left corners
+class OrganicClayBackgroundPainter extends CustomPainter {
+  const OrganicClayBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Top-right soft organic clay curve
+    final topPaint = Paint()
+      ..color = const Color(0xFFF1EFEA)
+      ..style = PaintingStyle.fill;
+
+    final topShadowPaint = Paint()
+      ..color = const Color(0x061F2328)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+
+    final topPath = Path()
+      ..moveTo(size.width * 0.42, 0)
+      ..cubicTo(
+        size.width * 0.60, size.height * 0.08,
+        size.width * 0.74, size.height * 0.16,
+        size.width, size.height * 0.18,
+      )
+      ..lineTo(size.width, 0)
+      ..close();
+
+    canvas.drawPath(topPath, topShadowPaint);
+    canvas.drawPath(topPath, topPaint);
+
+    // 2. Bottom-left soft organic clay curve
+    final bottomPaint = Paint()
+      ..color = const Color(0xFFF1EFEA)
+      ..style = PaintingStyle.fill;
+
+    final bottomShadowPaint = Paint()
+      ..color = const Color(0x061F2328)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
+
+    final bottomPath = Path()
+      ..moveTo(0, size.height * 0.68)
+      ..cubicTo(
+        size.width * 0.18, size.height * 0.72,
+        size.width * 0.38, size.height * 0.85,
+        size.width * 0.42, size.height,
+      )
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(bottomPath, bottomShadowPaint);
+    canvas.drawPath(bottomPath, bottomPaint);
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,14 +26,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
     )..repeat(reverse: true);
 
-    _scaleAnimation = Tween<double>(begin: 0.96, end: 1.02).animate(
+    _scaleAnimation = Tween<double>(begin: 0.985, end: 1.015).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutCubic),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -75,60 +76,129 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
       ),
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-              // Centered vertically as one group: [logo], "Easy chat", "Connect with people nearby"
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) {
-                  return ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF030508),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: AppColors.border, width: 0.8),
+        body: Stack(
+          children: [
+            // Background organic clay wave curves in corners
+            const Positioned.fill(
+              child: CustomPaint(
+                painter: OrganicClayBackgroundPainter(),
+              ),
+            ),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // 1. Tactile Clay Logo Tile (Squircle with multi-layered clay elevation)
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) {
+                            return Transform.scale(
+                              scale: _scaleAnimation.value,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 136,
+                            height: 136,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(36),
+                              border: Border.all(
+                                color: AppColors.border.withOpacity(0.6),
+                                width: 0.8,
+                              ),
+                              boxShadow: const [
+                                // Soft ambient drop shadow
+                                BoxShadow(
+                                  color: Color(0x0E1F2328),
+                                  offset: Offset(0, 16),
+                                  blurRadius: 32,
+                                  spreadRadius: 0,
+                                ),
+                                // Close contact shadow for physical grounding
+                                BoxShadow(
+                                  color: Color(0x061F2328),
+                                  offset: Offset(0, 4),
+                                  blurRadius: 10,
+                                  spreadRadius: 0,
+                                ),
+                                // Subtle top highlight for soft molded clay elevation
+                                BoxShadow(
+                                  color: Colors.white,
+                                  offset: Offset(0, -2),
+                                  blurRadius: 4,
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 66,
+                                height: 66,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x1A000000),
+                                      offset: Offset(0, 3),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const EasyChatLogoMark(size: 66),
+                              ),
+                            ),
+                          ),
                         ),
-                        child: const Center(
-                          child: EasyChatLogoMark(size: 54),
+
+                        const SizedBox(height: 28),
+
+                        // 2. Title: "Easy chat"
+                        const Text(
+                          'Easy chat',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.4,
+                          ),
                         ),
-                      ),
+
+                        const SizedBox(height: 8),
+
+                        // 3. Subtitle: "Connect with people nearby"
+                        const Text(
+                          'Connect with people nearby',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                            letterSpacing: -0.1,
+                            height: 1.3,
+                          ),
+                        ),
+
+                        const SizedBox(height: 36),
+
+                        // 4. Three blue loading dots
+                        const _ThreeBlueLoadingDots(),
+                      ],
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Easy chat',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.3,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Connect with people nearby',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSecondary,
-                  letterSpacing: -0.1,
-                ),
-              ),
-              const Spacer(flex: 4),
-              // At bottom: three small blue loading dots (#3B6FE0)
-              const _ThreeBlueLoadingDots(),
-              const SizedBox(height: 32),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -152,7 +222,7 @@ class _ThreeBlueLoadingDotsState extends State<_ThreeBlueLoadingDots>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1100),
     )..repeat();
   }
 
@@ -171,14 +241,18 @@ class _ThreeBlueLoadingDotsState extends State<_ThreeBlueLoadingDots>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(3, (index) {
-            final shift = (index * 0.25);
+            final shift = index * 0.22;
             final t = (_controller.value + shift) % 1.0;
-            final opacity = (0.3 + 0.7 * (1.0 - (2 * (t - 0.5)).abs())).clamp(0.3, 1.0);
+            final wave = 0.5 - 0.5 * math.cos(t * 2 * math.pi);
+            final opacity = (0.28 + 0.72 * wave).clamp(0.28, 1.0);
+            final scale = 0.88 + 0.24 * wave;
 
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 7,
-              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 3.5),
+              width: 6.5,
+              height: 6.5,
+              transform: Matrix4.diagonal3Values(scale, scale, 1.0),
+              transformAlignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primary.withOpacity(opacity),
