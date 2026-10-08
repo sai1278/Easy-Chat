@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/redis/go-redis/v9 v9.21.0
-	golang.org/x/crypto v0.48.0
+	golang.org/x/crypto v0.55.0
 	nearby/backend/shared v0.0.0
 )
 
@@ -21,7 +21,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace nearby/backend/shared => ../../shared
