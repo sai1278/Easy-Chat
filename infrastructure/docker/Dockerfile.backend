@@ -5,7 +5,7 @@
 # =====================================================
 # STAGE 1: COMPILATION BUILD ENVIRONMENT
 # =====================================================
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26.4-alpine AS builder
 
 # Force POSIX shell execution safety settings
 RUN set -eux; \
