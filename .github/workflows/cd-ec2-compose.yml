@@ -30,17 +30,6 @@ on:
         required: false
         default: ''
         type: string
-      publish_only:
-        description: 'Build, scan, sign, attest and publish to ECR without production deployment'
-        required: true
-        default: true
-        type: boolean
-      deploy_to_production:
-        description: 'Deploy the published immutable artifact to production'
-        required: true
-        default: false
-        type: boolean
-
 concurrency:
   group: production-ec2-deploy
   cancel-in-progress: false
@@ -60,11 +49,7 @@ jobs:
   build-and-sign:
     name: Build, Scan, Sign & Publish Microservice
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.event.inputs.publish_only == true || github.event.inputs.publish_only == 'true' ||
-        github.event.inputs.deploy_to_production == true || github.event.inputs.deploy_to_production == 'true'))
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     outputs:
       service_name: ${{ steps.set-service.outputs.service }}
       image_tag: ${{ steps.set-tag.outputs.tag }}
@@ -72,18 +57,12 @@ jobs:
       image_digest: ${{ steps.build-push.outputs.digest }}
       ecr_registry: ${{ env.ECR_REGISTRY }}
     steps:
-      - name: Validate Dispatch Input Invariants
+      - name: Validate Operating Mode (Option E CI-Only)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          PUBLISH_ONLY="${{ github.event.inputs.publish_only }}"
-          DEPLOY_PROD="${{ github.event.inputs.deploy_to_production }}"
-          if [ "$PUBLISH_ONLY" = "true" ] && [ "$DEPLOY_PROD" = "true" ]; then
-            echo "ERROR: Conflicting inputs. 'publish_only' and 'deploy_to_production' cannot both be true."
-            echo "For publish-only: set publish_only=true and deploy_to_production=false."
-            echo "For deployment:   set publish_only=false and deploy_to_production=true."
-            exit 1
-          fi
-          echo "Validated dispatch mode: publish_only=${PUBLISH_ONLY}, deploy_to_production=${DEPLOY_PROD}"
+          echo "Validated operating mode: Option E (CI-Only / Production CD Disabled)"
+          echo "Target microservice: ${{ github.event.inputs.service || 'auth' }}"
+          echo "Target ECR registry: ${{ env.ECR_REGISTRY }}"
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -228,11 +207,26 @@ jobs:
     needs: build-and-sign
     runs-on: ubuntu-latest
     environment: production
-    if: |
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.event.inputs.deploy_to_production == true || github.event.inputs.deploy_to_production == 'true') &&
-       (github.event.inputs.publish_only != true && github.event.inputs.publish_only != 'true'))
+    # ==============================================================================
+    # SRE GOVERNANCE HARDENING — OPTION E (CI-ONLY SAFE OPERATING MODE)
+    # ------------------------------------------------------------------------------
+    # STATUS: DISABLED (UNCONDITIONAL FALSE GUARD)
+    #
+    # RATIONALE:
+    # 1. Option E is active: Production CD is intentionally disabled.
+    # 2. The repository is private on a GitHub Free personal account, which cannot
+    #    enforce Environment Protection Rules (required reviewers / wait timers)
+    #    due to GitHub plan restrictions (HTTP 422).
+    # 3. Without an enforceable human approval gate, automated deployment to production
+    #    violates Google SRE production safety standards.
+    # 4. The deployment implementation below (SSM execution, immutable digest checks,
+    #    rollback anchors, and health probes) is strictly preserved for future
+    #    controlled re-enablement.
+    # 5. WARNING: This job must NOT be re-enabled casually or via workflow inputs.
+    #    Re-enablement strictly requires a future approved production governance stage
+    #    following GitHub plan upgrade and verified environment protection rules.
+    # ==============================================================================
+    if: false
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
