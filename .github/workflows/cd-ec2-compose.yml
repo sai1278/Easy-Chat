@@ -1,0 +1,348 @@
+# ==============================================================================
+# Easy Chat — Production Continuous Delivery Pipeline (AWS EC2 Docker Compose)
+# Target Environment: AWS EC2 (i-052480b62cb6bf6c5, us-east-1)
+# Architecture: GitHub Actions -> AWS OIDC -> ECR -> Cosign -> SSM -> Docker Compose
+# ==============================================================================
+name: Production CD (EC2 Docker Compose)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Microservice to deploy (e.g. auth, chat, gateway, user, nearby, presence, media, notification)'
+        required: true
+        default: 'auth'
+        type: choice
+        options:
+          - auth
+          - chat
+          - gateway
+          - user
+          - nearby
+          - presence
+          - media
+          - notification
+      image_tag:
+        description: 'Optional custom image tag override (default: sha-<commit> or v<semver>)'
+        required: false
+        default: ''
+        type: string
+      publish_only:
+        description: 'Build, scan, sign, attest and publish to ECR without production deployment'
+        required: true
+        default: true
+        type: boolean
+      deploy_to_production:
+        description: 'Deploy the published immutable artifact to production'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: production-ec2-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 035193681222.dkr.ecr.us-east-1.amazonaws.com
+  DEFAULT_CI_ROLE_ARN: arn:aws:iam::035193681222:role/easychat-github-ci-publisher-role
+  DEFAULT_DEPLOY_ROLE_ARN: arn:aws:iam::035193681222:role/easychat-github-deployer-role
+  TARGET_INSTANCE_ID: i-052480b62cb6bf6c5
+
+jobs:
+  build-and-sign:
+    name: Build, Scan, Sign & Publish Microservice
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.publish_only == true || github.event.inputs.publish_only == 'true' ||
+        github.event.inputs.deploy_to_production == true || github.event.inputs.deploy_to_production == 'true'))
+    outputs:
+      service_name: ${{ steps.set-service.outputs.service }}
+      image_tag: ${{ steps.set-tag.outputs.tag }}
+      image_uri: ${{ steps.set-uri.outputs.image_uri }}
+      image_digest: ${{ steps.build-push.outputs.digest }}
+      ecr_registry: ${{ env.ECR_REGISTRY }}
+    steps:
+      - name: Validate Dispatch Input Invariants
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          PUBLISH_ONLY="${{ github.event.inputs.publish_only }}"
+          DEPLOY_PROD="${{ github.event.inputs.deploy_to_production }}"
+          if [ "$PUBLISH_ONLY" = "true" ] && [ "$DEPLOY_PROD" = "true" ]; then
+            echo "ERROR: Conflicting inputs. 'publish_only' and 'deploy_to_production' cannot both be true."
+            echo "For publish-only: set publish_only=true and deploy_to_production=false."
+            echo "For deployment:   set publish_only=false and deploy_to_production=true."
+            exit 1
+          fi
+          echo "Validated dispatch mode: publish_only=${PUBLISH_ONLY}, deploy_to_production=${DEPLOY_PROD}"
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Determine Service Name
+        id: set-service
+        run: |
+          SERVICE="${{ github.event.inputs.service || 'auth' }}"
+          echo "service=${SERVICE}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine Image Tag
+        id: set-tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.ref_name }}" ] && [[ "${{ github.ref_name }}" =~ ^v[0-9] ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine Canonical Image URI
+        id: set-uri
+        run: |
+          SERVICE="${{ steps.set-service.outputs.service }}"
+          TAG="${{ steps.set-tag.outputs.tag }}"
+          echo "image_uri=${ECR_REGISTRY}/easychat/${SERVICE}:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS Credentials via OIDC (CI Artifact Publisher Role)
+        id: aws-auth
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN || secrets.AWS_CI_ROLE_ARN || env.DEFAULT_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Scan Docker Image (Off-Host)
+        id: build-image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./infrastructure/docker/Dockerfile.backend
+          build-args: |
+            SERVICE_NAME=${{ steps.set-service.outputs.service }}
+          push: false
+          load: true
+          tags: |
+            ${{ steps.set-uri.outputs.image_uri }}
+            easychat-${{ steps.set-service.outputs.service }}:${{ steps.set-tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy Image Vulnerability Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ steps.set-uri.outputs.image_uri }}"
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
+          format: 'table'
+          exit-code: '1'
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: "${{ steps.set-uri.outputs.image_uri }}"
+          format: 'spdx-json'
+          output-file: "sbom-${{ steps.set-service.outputs.service }}.spdx.json"
+
+      - name: Push Verified Image to Amazon ECR
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./infrastructure/docker/Dockerfile.backend
+          build-args: |
+            SERVICE_NAME=${{ steps.set-service.outputs.service }}
+          push: true
+          tags: |
+            ${{ steps.set-uri.outputs.image_uri }}
+          cache-from: type=gha
+
+      - name: Sign Container Image with Cosign (Keyless via OIDC)
+        env:
+          SERVICE: ${{ steps.set-service.outputs.service }}
+          DIGEST: ${{ steps.build-push.outputs.digest }}
+        run: |
+          if [ -z "${DIGEST}" ]; then
+            echo "ERROR: Missing image digest from ECR push. Cannot sign."
+            exit 1
+          fi
+          echo "Signing published artifact: ${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}"
+          cosign sign --yes "${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}"
+          echo "Cosign image signature published successfully."
+
+      - name: Attest SBOM to ECR Image with Cosign
+        env:
+          SERVICE: ${{ steps.set-service.outputs.service }}
+          DIGEST: ${{ steps.build-push.outputs.digest }}
+        run: |
+          if [ -z "${DIGEST}" ]; then
+            echo "ERROR: Missing image digest from ECR push. Cannot attest SBOM."
+            exit 1
+          fi
+          echo "Attesting SBOM to ${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}..."
+          cosign attest --yes \
+            --predicate "sbom-${SERVICE}.spdx.json" \
+            --type spdxjson \
+            "${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}"
+          echo "Cosign SBOM attestation published successfully."
+
+      - name: Verify Signed Image Artifact with Cosign
+        env:
+          SERVICE: ${{ steps.set-service.outputs.service }}
+          DIGEST: ${{ steps.build-push.outputs.digest }}
+        run: |
+          if [ -z "${DIGEST}" ]; then
+            echo "ERROR: Missing image digest from ECR push. Cannot verify."
+            exit 1
+          fi
+          echo "Verifying signature on ${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}..."
+          cosign verify \
+            --certificate-identity-regexp "https://github.com/sai1278/Easy-Chat/.*" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}"
+          echo "Cosign signature verified successfully for ${SERVICE}@${DIGEST}."
+
+  deploy-production:
+    name: Deploy to Production EC2 (Manual SRE Approval Gate)
+    needs: build-and-sign
+    runs-on: ubuntu-latest
+    environment: production
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.deploy_to_production == true || github.event.inputs.deploy_to_production == 'true') &&
+       (github.event.inputs.publish_only != true && github.event.inputs.publish_only != 'true'))
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate Immutable Artifact Digest
+        env:
+          SERVICE: ${{ needs.build-and-sign.outputs.service_name }}
+          DIGEST: ${{ needs.build-and-sign.outputs.image_digest }}
+        run: |
+          if [ -z "${DIGEST}" ]; then
+            echo "ERROR: Immutable image digest is missing from build-and-sign outputs!"
+            exit 1
+          fi
+          if [[ ! "${DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "ERROR: Invalid immutable image digest format: ${DIGEST}"
+            exit 1
+          fi
+          echo "Validated immutable artifact identity: ${ECR_REGISTRY}/easychat/${SERVICE}@${DIGEST}"
+
+      - name: Configure AWS Credentials via OIDC (Production Deployer Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || env.DEFAULT_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Dispatch Deployment via AWS SSM Run Command
+        id: ssm-deploy
+        env:
+          SERVICE_NAME: ${{ needs.build-and-sign.outputs.service_name }}
+          IMAGE_TAG: ${{ needs.build-and-sign.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build-and-sign.outputs.image_digest }}
+        run: |
+          echo "Dispatching deployment command to production instance ${TARGET_INSTANCE_ID}..."
+          
+          # Construct canonical ECR image reference (immutable digest strictly required)
+          if [ -z "${IMAGE_DIGEST}" ]; then
+            echo "ERROR: Immutable image digest is required for production deployment!"
+            exit 1
+          fi
+          TARGET_IMAGE="${ECR_REGISTRY}/easychat/${SERVICE_NAME}@${IMAGE_DIGEST}"
+          
+          echo "Canonical deployment artifact: ${TARGET_IMAGE}"
+          DEPLOY_CMD="bash /opt/easychat/app/scripts/deploy_production_service.sh ${SERVICE_NAME} ${TARGET_IMAGE}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${TARGET_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[\"${DEPLOY_CMD}\"]" \
+            --comment "Production deployment of ${SERVICE_NAME} (${TARGET_IMAGE}) via GitHub Actions" \
+            --query "Command.CommandId" \
+            --output text)
+            
+          echo "SSM Command dispatched. CommandId: ${COMMAND_ID}"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Await SSM Deployment Execution & Evaluate Health
+        env:
+          COMMAND_ID: ${{ steps.ssm-deploy.outputs.command_id }}
+        run: |
+          echo "Polling SSM Command ${COMMAND_ID} for completion..."
+          STATUS="InProgress"
+          COUNT=0
+          
+          while [ "$STATUS" == "InProgress" ] || [ "$STATUS" == "Pending" ]; do
+            sleep 5
+            COUNT=$((COUNT+1))
+            if [ $COUNT -gt 36 ]; then
+              echo "Timeout waiting for SSM command execution."
+              exit 1
+            fi
+            
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${TARGET_INSTANCE_ID}" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "InProgress")
+            echo "Current SSM Status: ${STATUS} (elapsed: $((COUNT*5))s)"
+          done
+          
+          # Retrieve full stdout/stderr
+          aws ssm get-command-invocation \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${TARGET_INSTANCE_ID}" \
+            --query "StandardOutputContent" \
+            --output text
+            
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment execution FAILED with status: ${STATUS}"
+            aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${TARGET_INSTANCE_ID}" \
+              --query "StandardErrorContent" \
+              --output text
+            exit 1
+          fi
+          
+          echo "SSM deployment script executed successfully."
+
+      - name: External Public Ingress Health Gate
+        run: |
+          echo "Verifying external ingress health..."
+          for i in {1..10}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://api.vortiqen.site/healthz || echo "000")
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "Ingress health verified: HTTP 200 OK."
+              exit 0
+            fi
+            echo "Health check attempt $i returned HTTP ${HTTP_CODE}, retrying..."
+            sleep 3
+          done
+          echo "ERROR: Public endpoint health verification failed!"
+          exit 1
