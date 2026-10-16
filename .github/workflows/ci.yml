@@ -127,9 +127,11 @@ jobs:
           bash -n infrastructure/scripts/deliver-migrations.sh
 
       - name: Run ShellCheck Static Analysis
-        uses: koalaman/shellcheck-action@v2
-        with:
-          check_paths: 'infrastructure/scripts/deliver-migrations.sh'
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -y && sudo apt-get install -y shellcheck
+          fi
+          shellcheck infrastructure/scripts/deliver-migrations.sh
 
       - name: Execute Migration Delivery Regression Harness
         run: |
