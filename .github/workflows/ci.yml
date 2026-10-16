@@ -109,3 +109,30 @@ jobs:
           scan-type: 'fs'
           ignore-unfixed: true
           format: 'table'
+
+  migration-and-script-quality:
+    name: Migration Delivery & Shell Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate Bash Script Syntax
+        run: |
+          bash -n infrastructure/scripts/deliver-migrations.sh
+
+      - name: Run ShellCheck Static Analysis
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -y && sudo apt-get install -y shellcheck
+          fi
+          shellcheck infrastructure/scripts/deliver-migrations.sh
+
+      - name: Execute Migration Delivery Regression Harness
+        run: |
+          python tests/infrastructure/test_deliver_migrations.py
